@@ -28,16 +28,20 @@ export function App() {
   // Leaving a screen stops anything still being spoken.
   const go = (action: NavAction) => {
     stopSpeaking();
+    // Keep one spare step in the browser's history, so a stray swipe-back
+    // on the phone goes back inside the board and does not close it.
+    if (!window.history.state?.guard) window.history.pushState({ guard: true }, '');
     dispatch(action);
   };
 
-  if (screen.name === 'big') {
-    return (
-      <PressContext.Provider value={press}>
-        <BigScreen phrase={screen.phrase} onBack={() => go({ type: 'back' })} />
-      </PressContext.Provider>
-    );
-  }
+  useEffect(() => {
+    const onSystemBack = () => {
+      stopSpeaking();
+      dispatch({ type: 'back' });
+    };
+    window.addEventListener('popstate', onSystemBack);
+    return () => window.removeEventListener('popstate', onSystemBack);
+  }, []);
 
   const atStart = nav.length === 1 && screen.name === 'home' && screen.page === 0;
   const category =
@@ -52,12 +56,14 @@ export function App() {
             <BackIcon />
             <span>Back</span>
           </PressButton>
-          <h1 className="bar-title">{title}</h1>
           <PressButton className="bar-button" disabled={atStart} onPress={() => go({ type: 'home' })}>
             <HomeIcon />
             <span>Home</span>
           </PressButton>
         </header>
+        {title && <h1 className="title">{title}</h1>}
+
+        {screen.name === 'big' && <BigScreen phrase={screen.phrase} />}
 
         {screen.name === 'home' && (
           <Grid
@@ -158,7 +164,7 @@ function MessageScreen({
   );
 }
 
-function BigScreen({ phrase, onBack }: { phrase: string; onBack: () => void }) {
+function BigScreen({ phrase }: { phrase: string }) {
   // Keep the screen on while the message is showing, where the phone allows it.
   useEffect(() => {
     let lock: WakeLockSentinel | null = null;
@@ -186,13 +192,9 @@ function BigScreen({ phrase, onBack }: { phrase: string; onBack: () => void }) {
   }, []);
 
   return (
-    <div className="big">
+    <main className="big">
       <FitText text={phrase} className="big-text" />
-      <PressButton className="action action-back" onPress={onBack}>
-        <BackIcon />
-        <span>Back</span>
-      </PressButton>
-    </div>
+    </main>
   );
 }
 
