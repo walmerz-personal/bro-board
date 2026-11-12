@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import boardData from '../src/data/default-board.json';
 import { paginate, shouldAcceptPress, validateBoard, type Board } from '../src/board';
 import { current, initialNav, navReducer, type NavAction } from '../src/nav';
+import { pickVoice, type VoiceInfo } from '../src/speech';
 
 const board = boardData as Board;
 const symbol = (icon: string) => fileURLToPath(new URL(`../public/symbols/${icon}.svg`, import.meta.url));
@@ -105,5 +106,33 @@ describe('navigation', () => {
     const big = run({ type: 'openCategory', category: yes }, { type: 'showBig' });
     expect(current(big)).toEqual({ name: 'big', phrase: 'Yes.' });
     expect(current(navReducer(board, big, { type: 'back' })).name).toBe('message');
+  });
+});
+
+describe('pickVoice', () => {
+  const voice = (name: string, lang = 'en-US', isDefault = false): VoiceInfo => ({
+    name,
+    lang,
+    localService: true,
+    default: isDefault,
+  });
+
+  it('prefers a higher-quality voice over the default', () => {
+    const picked = pickVoice([voice('Samantha', 'en-US', true), voice('Ava (Premium)'), voice('Bells')]);
+    expect(picked?.name).toBe('Ava (Premium)');
+  });
+
+  it('never picks a joke voice when a normal one exists', () => {
+    const picked = pickVoice([voice('Albert'), voice('Zarvox'), voice('Samantha')]);
+    expect(picked?.name).toBe('Samantha');
+  });
+
+  it('keeps the phone default when nothing is clearly better', () => {
+    const picked = pickVoice([voice('English United States'), voice('English Australia', 'en-AU', true)]);
+    expect(picked?.name).toBe('English Australia');
+  });
+
+  it('lets the phone decide when there is no English voice', () => {
+    expect(pickVoice([voice('Amelie', 'fr-FR', true)])).toBeNull();
   });
 });
