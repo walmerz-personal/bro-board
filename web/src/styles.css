@@ -1,0 +1,299 @@
+:root {
+  --ink: #111111;
+  --paper: #ffffff;
+  --page: #e9edf2;
+  --bar: #1c2b3a;
+  --bar-ink: #ffffff;
+  --border: #111111;
+  --pressed: #ffe066;
+  --speak: #0b6b3a;
+  --big: #0b4f9e;
+  --more: #dfe7f1;
+  --gap: 10px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Nothing on the page scrolls, zooms or gets selected by a stray touch. */
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* Top bar: Back and Home stay in the same place on every screen. */
+.bar {
+  flex: none;
+  display: grid;
+  grid-template-columns: 104px 1fr 104px;
+  align-items: stretch;
+  gap: var(--gap);
+  height: 84px;
+  padding: 8px var(--gap);
+  background: var(--bar);
+  color: var(--bar-ink);
+}
+
+.bar-title {
+  margin: 0;
+  align-self: center;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.bar-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 3px solid var(--bar-ink);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--bar-ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.bar-button:disabled {
+  opacity: 0.25;
+}
+
+.bar-button:active:not(:disabled) {
+  background: var(--pressed);
+  color: var(--ink);
+}
+
+.ui-icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+/* The grid: 2 across, 3 down, filling the screen. */
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+.tile {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border: 4px solid var(--border);
+  border-radius: 20px;
+  background: var(--paper);
+}
+
+.tile:active {
+  background: var(--pressed);
+}
+
+.tile-icon {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.tile-label {
+  flex: none;
+  font-size: clamp(20px, 6.2vmin, 30px);
+  line-height: 1.1;
+  font-weight: 800;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.tile-more {
+  background: var(--more);
+  /* Always the bottom-right button, even on a part-filled screen. */
+  grid-column-end: -1;
+  grid-row-end: -1;
+}
+
+.tile-more .ui-icon {
+  width: 72px;
+  height: 72px;
+}
+
+/* Message screen: the phrase, then one large button per way of saying it. */
+.message {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1.2fr 1fr 1fr;
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+.message-phrase {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 30% 1fr;
+  align-items: center;
+  gap: var(--gap);
+  padding: 10px;
+  border-radius: 20px;
+  background: var(--paper);
+}
+
+.message-icon {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.message-text,
+.big-text {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.fit-text-inner {
+  display: block;
+  width: 100%;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  overflow-wrap: normal;
+}
+
+.action {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border: 4px solid var(--border);
+  border-radius: 20px;
+  color: #ffffff;
+  font-size: clamp(28px, 9vmin, 44px);
+  font-weight: 800;
+}
+
+.action .ui-icon {
+  width: 56px;
+  height: 56px;
+}
+
+.action-speak {
+  background: var(--speak);
+}
+
+.action-big {
+  background: var(--big);
+}
+
+.action:active,
+.action.is-active {
+  background: var(--pressed);
+  color: var(--ink);
+}
+
+.action:disabled {
+  background: #777777;
+  font-size: 24px;
+}
+
+/* Show big: the phrase fills the screen. */
+.big {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: 1fr 96px;
+  gap: var(--gap);
+  padding: var(--gap);
+  background: var(--paper);
+}
+
+.action-back {
+  background: var(--bar);
+  font-size: 30px;
+}
+
+.action-back .ui-icon {
+  width: 40px;
+  height: 40px;
+}
+
+/* When the phone is held sideways, use 3 across and 2 down. */
+@media (orientation: landscape) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+  }
+
+  .bar {
+    height: 64px;
+  }
+
+  .bar-button {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .message {
+    grid-template-rows: none;
+    grid-template-columns: 1.2fr 1fr 1fr;
+  }
+
+  .message-phrase {
+    grid-template-columns: none;
+    grid-template-rows: 35% 1fr;
+  }
+
+  .action {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "settings": {
+    "repeatDelayMs": 600,
+    "holdMs": 0,
+    "speakLabels": false,
+    "speechRate": 0.9
+  },
+  "categories": [
+    {
+      "id": "food",
+      "label": "Food and drink",
+      "icon": "food",
+      "items": [
+        { "id": "hungry", "label": "Hungry", "icon": "hungry", "phrase": "I am hungry." },
+        { "id": "thirsty", "label": "Thirsty", "icon": "thirsty", "phrase": "I would like a drink." },
+        { "id": "snack", "label": "Snack", "icon": "snack", "phrase": "I would like a snack." },
+        { "id": "send-snacks", "label": "Send snacks", "icon": "crisps", "phrase": "Please send me snacks." },
+        { "id": "help-eating", "label": "Help eating", "icon": "feed", "phrase": "I need help eating." },
+        { "id": "finished", "label": "Finished", "icon": "finish", "phrase": "I am finished eating." }
+      ]
+    },
+    {
+      "id": "bathroom",
+      "label": "Bathroom",
+      "icon": "toilet",
+      "items": [
+        { "id": "pee", "label": "Pee", "icon": "pee", "phrase": "I need to pee." },
+        { "id": "poo", "label": "Poo", "icon": "poo", "phrase": "I need to poo." },
+        { "id": "help-now", "label": "Need help now", "icon": "help", "phrase": "I need help in the bathroom now." },
+        { "id": "accident", "label": "Accident", "icon": "wet", "phrase": "I had an accident and need help." },
+        { "id": "shower", "label": "Shower", "icon": "shower", "phrase": "I would like a shower." }
+      ]
+    },
+    {
+      "id": "pain",
+      "label": "Pain",
+      "icon": "pain",
+      "items": [
+        { "id": "head", "label": "Head", "icon": "head", "phrase": "I have pain in my head." },
+        { "id": "mouth", "label": "Mouth or teeth", "icon": "mouth", "phrase": "I have pain in my mouth." },
+        { "id": "chest", "label": "Chest", "icon": "chest", "phrase": "I have pain in my chest." },
+        { "id": "stomach", "label": "Stomach", "icon": "stomach", "phrase": "I have pain in my stomach." },
+        { "id": "back", "label": "Back", "icon": "back", "phrase": "I have pain in my back." },
+        { "id": "arm", "label": "Arm or hand", "icon": "arm", "phrase": "I have pain in my arm or hand." },
+        { "id": "leg", "label": "Leg or foot", "icon": "leg", "phrase": "I have pain in my leg or foot." },
+        { "id": "sick", "label": "Feel sick", "icon": "sick", "phrase": "I feel sick." }
+      ]
+    },
+    {
+      "id": "clothes",
+      "label": "Clothes",
+      "icon": "clothes",
+      "items": [
+        { "id": "pants", "label": "Pants", "icon": "trousers", "phrase": "Please help me put on pants." },
+        { "id": "shirt", "label": "Shirt", "icon": "shirt", "phrase": "Please help me put on a shirt." },
+        { "id": "socks", "label": "Socks and shoes", "icon": "socks", "phrase": "Please help me with socks and shoes." },
+        { "id": "change", "label": "Change clothes", "icon": "change-clothes", "phrase": "I want to change my clothes." },
+        { "id": "take-off", "label": "Take off", "icon": "undress", "phrase": "Please help me take this off." }
+      ]
+    },
+    {
+      "id": "tv",
+      "label": "TV and movies",
+      "icon": "tv",
+      "items": [
+        { "id": "movie", "label": "Movie", "icon": "movie", "phrase": "Please put on a movie." },
+        { "id": "change-it", "label": "Change it", "icon": "change-channel", "phrase": "Please change what is on." },
+        { "id": "louder", "label": "Louder", "icon": "louder", "phrase": "Please turn it up." },
+        { "id": "quieter", "label": "Quieter", "icon": "quieter", "phrase": "Please turn it down." },
+        { "id": "off", "label": "Turn off", "icon": "tv-off", "phrase": "Please turn the TV off." }
+      ]
+    },
+    {
+      "id": "comfort",
+      "label": "Comfort",
+      "icon": "comfort",
+      "items": [
+        { "id": "hot", "label": "Too hot", "icon": "hot", "phrase": "I am too hot." },
+        { "id": "cold", "label": "Too cold", "icon": "cold", "phrase": "I am too cold." },
+        { "id": "move", "label": "Move me", "icon": "move", "phrase": "Please help me change position." },
+        { "id": "bed", "label": "Bed", "icon": "bed", "phrase": "I want to go to bed." },
+        { "id": "get-up", "label": "Get up", "icon": "get-up", "phrase": "I want to get up." },
+        { "id": "tired", "label": "Tired", "icon": "tired", "phrase": "I am tired." }
+      ]
+    },
+    {
+      "id": "people",
+      "label": "People",
+      "icon": "family",
+      "items": [
+        { "id": "call", "label": "Call family", "icon": "call", "phrase": "I want to call my family." },
+        { "id": "visit", "label": "Visit", "icon": "visit", "phrase": "I would like a visit." },
+        { "id": "alone", "label": "Be alone", "icon": "alone", "phrase": "I would like to be alone for a while." },
+        { "id": "talk", "label": "Talk", "icon": "talk", "phrase": "I want to talk with someone." }
+      ]
+    },
+    { "id": "yes", "label": "Yes", "icon": "yes", "phrase": "Yes." },
+    { "id": "no", "label": "No", "icon": "no", "phrase": "No." },
+    {
+      "id": "else",
+      "label": "Something else",
+      "icon": "what",
+      "phrase": "I need something that is not on my board. Please help me work out what."
+    }
+  ]
+}

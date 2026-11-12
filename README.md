@@ -12,7 +12,7 @@ Family can change the buttons remotely from their own phone or computer.
 
 ## Status
 
-Planning. No app code yet.
+Stage 1 is built: categories, items, Speak and Show big. Remote editing (stage 2) and texting (stage 3) come next.
 
 - [Product requirements (PRD)](docs/PRD.md): what the app must do and why
 - [Interview notes](docs/interview-notes.md): the answers the PRD is based on
@@ -23,6 +23,22 @@ Planning. No app code yet.
 2. He or a caregiver opens it in Chrome and taps **Add to Home screen**.
 3. The app then has its own icon and opens full screen. Updates arrive automatically.
 
+## Working on the app
+
+The app lives in the `web` folder. With [Node.js](https://nodejs.org/) installed:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+`npm test` runs the checks and `npm run build` makes the files that get published.
+
+The starter buttons are in `web/src/data/default-board.json`. Each button has a short label, a picture name from `web/public/symbols`, and the phrase that is spoken or shown.
+
+When a change is merged into `main`, GitHub tests it and publishes the site automatically.
+
 ## Build stages
 
 1. Core board: categories, items, Speak and Show big
@@ -31,7 +47,7 @@ Planning. No app code yet.
 
 ## Credits
 
-Pictures will come from the [Mulberry Symbols](https://mulberrysymbols.org/) set, licensed CC BY-SA 4.0. Design ideas are informed by [Cboard](https://github.com/cboard-org/cboard); no Cboard code is used.
+The pictures on the buttons are from [Mulberry Symbols](https://mulberrysymbols.org/), copyright Steve Lee, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Some files were renamed; the pictures are unchanged. The licence text is in `web/public/symbols/LICENSE-mulberry.txt`. Design ideas are informed by [Cboard](https://github.com/cboard-org/cboard); no Cboard code is used.
 
 ## Privacy
 
