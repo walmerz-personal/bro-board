@@ -52,11 +52,20 @@ export function pickVoice<T extends VoiceInfo>(voices: T[]): T | null {
 // Phones load their list of voices a moment after the page opens.
 let voices: SpeechSynthesisVoice[] = [];
 if (canSpeak()) {
+  // A phone with only partial speech support must not stop the board loading.
   const load = () => {
-    voices = window.speechSynthesis.getVoices();
+    try {
+      voices = window.speechSynthesis.getVoices();
+    } catch {
+      voices = [];
+    }
   };
   load();
-  window.speechSynthesis.addEventListener?.('voiceschanged', load);
+  try {
+    window.speechSynthesis.addEventListener('voiceschanged', load);
+  } catch {
+    // The list simply stays as first loaded.
+  }
 }
 
 // Kept here so the phone does not discard it part-way through (an iPhone quirk).
@@ -73,10 +82,14 @@ export function speak(text: string, rate: number, onDone?: () => void): void {
   // nothing is playing can silently swallow the next thing said.
   if (synth.speaking || synth.pending) synth.cancel();
   // Some phones get stuck paused after the app is put in the background.
-  synth.resume();
+  try {
+    synth.resume();
+    if (voices.length === 0) voices = synth.getVoices();
+  } catch {
+    // Carry on with the phone's default voice.
+  }
 
   const utterance = new SpeechSynthesisUtterance(text);
-  if (voices.length === 0) voices = synth.getVoices();
   const voice = pickVoice(voices);
   if (voice) {
     utterance.voice = voice;
