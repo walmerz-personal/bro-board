@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import boardData from './data/default-board.json';
 import { useBoard } from './boardSource';
 import { paginate, type Board, type Category, type Item, type Recipient, type Tile } from './board';
-import { colorFor, swatchStyle, type Swatch } from './colors';
+import { colorFor, PALETTE, swatchStyle, type Swatch } from './colors';
 import { current, initialNav, navReducer, type NavAction, type NavState } from './nav';
 import { PressButton, PressContext } from './PressButton';
 import { FitText } from './FitText';
@@ -13,6 +13,23 @@ const starterBoard = boardData as Board;
 
 // The editor is only loaded on family's devices, never on his phone.
 const Editor = lazy(() => import('./editor/Editor'));
+
+/**
+ * Everyone on the texting screens shares the Text button's purple, like the
+ * buttons inside a category share its colour. Red and green stay meaning No
+ * and Yes.
+ */
+const PEOPLE_SWATCH = PALETTE.purple;
+
+/** Whether the little animations should play: family can turn them off, and so can his phone's own setting. */
+function wantsMotion(board: Board): boolean {
+  if (board.settings.animations === false) return false;
+  try {
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return true;
+  }
+}
 
 /** How long "Said it" shows after something has been spoken. */
 const SAID_MS = 2500;
@@ -167,12 +184,12 @@ function BoardApp() {
     content = <BigScreen phrase={screen.phrase} icon={screen.icon} />;
   } else if (screen.name === 'people') {
     const pages = paginate(people.map(asTile));
-    strip = <TitleStrip title="Text who?" page={screen.page} pages={pages.length} />;
+    strip = <TitleStrip title="Text who?" page={screen.page} pages={pages.length} swatch={PEOPLE_SWATCH} />;
     content = (
       <Grid
         tiles={pages[Math.min(screen.page, pages.length - 1)] ?? []}
         lastPage={screen.page === pages.length - 1}
-        swatchOf={(p) => colorFor(p)}
+        swatchOf={() => PEOPLE_SWATCH}
         saidId={null}
         onPick={(p) => {
           const person = people.find((r) => r.id === p.id);
@@ -188,9 +205,10 @@ function BoardApp() {
       <ConfirmScreen
         person={person}
         phrase={screen.phrase}
+        motion={wantsMotion(board)}
         onYes={() => {
-          // Open Messages inside the tap itself, then start again from Home
-          // for when he comes back.
+          // Open Messages (still counted as his tap), then start again from
+          // Home for when he comes back.
           window.location.assign(smsLink(person.phone, screen.phrase));
           go({ type: 'home' });
         }}
@@ -201,7 +219,7 @@ function BoardApp() {
 
   return (
     <PressContext.Provider value={press}>
-      <div className="app">
+      <div className={board.settings.animations === false ? 'app motion-off' : 'app'}>
         <header className="bar">
           <PressButton className="bar-button" disabled={atStart} onPress={() => go({ type: 'back' })}>
             <BackIcon />
@@ -212,8 +230,11 @@ function BoardApp() {
             <span>Home</span>
           </PressButton>
         </header>
-        {strip}
-        {content}
+        {/* A new key on each new screen lets it fade in gently. */}
+        <Fragment key={`${nav.length}-${screen.name}-${'page' in screen ? screen.page : ''}`}>
+          {strip}
+          {content}
+        </Fragment>
         <p className="visually-hidden" aria-live="polite">
           {speakState === 'said' ? 'Said it.' : ''}
         </p>
@@ -320,7 +341,7 @@ function MessageScreen({
 
   return (
     <main className={onText ? 'message has-text' : 'message'}>
-      <div className="message-phrase" style={swatch ? swatchStyle(swatch) : undefined}>
+      <div className={`message-phrase is-${speakState}`} style={swatch ? swatchStyle(swatch) : undefined}>
         <img className="message-icon" src={iconUrl(icon)} alt="" draggable={false} />
         <FitText text={phrase} className="message-text" />
       </div>
@@ -351,33 +372,67 @@ function asTile(person: Recipient) {
   return { id: person.id, label: person.name, icon: person.icon };
 }
 
+/** How long the paper plane flies before Messages opens. */
+const PLANE_MS = 380;
+
 /** Yes / No before Messages opens, so a stray tap never starts a text. */
 function ConfirmScreen({
   person,
   phrase,
+  motion,
   onYes,
   onNo,
 }: {
   person: Recipient;
   phrase: string;
+  motion: boolean;
   onYes: () => void;
   onNo: () => void;
 }) {
+  // A paper plane flies off "Yes, text" before Messages opens. The short wait
+  // still counts as his tap, which phones need before opening Messages.
+  const [sending, setSending] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const yes = () => {
+    if (sending) return;
+    if (!motion) {
+      onYes();
+      return;
+    }
+    setSending(true);
+    timer.current = window.setTimeout(onYes, PLANE_MS);
+  };
   return (
     <main className="confirm">
-      <div className="confirm-card" style={swatchStyle(colorFor(person))}>
+      <div className="confirm-card" style={swatchStyle(PEOPLE_SWATCH)}>
         <img className="confirm-icon" src={iconUrl(person.icon)} alt="" draggable={false} />
         <p className="confirm-to">To {person.name}</p>
         <FitText text={phrase} className="confirm-text" />
       </div>
       <div className="confirm-answers">
-        <PressButton className="tile confirm-yes" style={swatchStyle(colorFor({ id: 'yes', color: 'green' }))} onPress={onYes}>
+        <PressButton
+          className={sending ? 'tile confirm-yes is-sending' : 'tile confirm-yes'}
+          style={swatchStyle(colorFor({ id: 'yes', color: 'green' }))}
+          onPress={yes}
+        >
           <span className="tile-picture">
             <img className="tile-icon" src={iconUrl('yes')} alt="" draggable={false} />
+            {sending && (
+              <span className="plane">
+                <PlaneIcon />
+              </span>
+            )}
           </span>
           <span className="tile-label">Yes, text</span>
         </PressButton>
-        <PressButton className="tile confirm-no" style={swatchStyle(colorFor({ id: 'no', color: 'red' }))} onPress={onNo}>
+        <PressButton
+          className="tile confirm-no"
+          style={swatchStyle(colorFor({ id: 'no', color: 'red' }))}
+          onPress={() => {
+            if (!sending) onNo();
+          }}
+        >
           <span className="tile-picture">
             <img className="tile-icon" src={iconUrl('no')} alt="" draggable={false} />
           </span>
@@ -455,7 +510,10 @@ const StartIcon = () => (
 );
 const SpeakIcon = () => (
   <Svg>
-    <path d="M4 9v6h4l5 4V5L8 9H4zM16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" />
+    <path d="M4 9v6h4l5 4V5L8 9H4z" />
+    {/* The two sound waves rise and fall while the voice plays. */}
+    <path className="wave wave-1" d="M16.5 8.5a5 5 0 010 7" />
+    <path className="wave wave-2" d="M19 6a8.5 8.5 0 010 12" />
   </Svg>
 );
 const BigIcon = () => (
@@ -470,6 +528,12 @@ const TextIcon = () => (
 );
 const CheckIcon = () => (
   <Svg>
-    <path d="M5 12.5l4.5 4.5L19 7.5" />
+    {/* Draws itself on, like a pen stroke, when animations are on. */}
+    <path className="tick-path" d="M5 12.5l4.5 4.5L19 7.5" />
+  </Svg>
+);
+const PlaneIcon = () => (
+  <Svg>
+    <path d="M21 3L3 10.5l7 2.5 2.5 7L21 3zM10 13l5-5" />
   </Svg>
 );

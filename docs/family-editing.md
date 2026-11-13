@@ -15,7 +15,7 @@ On a computer, **His phone** on the left shows exactly what his screens will loo
 - **Home screen buttons**: rename, add, change the picture and the **colour**, and move them with **Up** and **Down** or take them off with **Remove**. The list is grouped by the screen each button appears on.
 - **What a button does**: either it **opens a list of needs**, or it **says one message**. A message button can also **speak straight away with one tap and stay on Home**, like Yes and No.
 - **Needs inside a button**: the label, the picture, and **what the phone says**. They take the colour of the button they are in, so he can tell where he is.
-- **Touch and sound**: how long repeat taps are ignored, an optional hold time, the phone voice's speed, a gentle buzz when a press counts, and whether button names are said aloud.
+- **Touch and sound**: how long repeat taps are ignored, an optional hold time, the phone voice's speed, a gentle buzz when a press counts, whether button names are said aloud, and **Little animations**: a tick that draws itself, a soft glow when something is said, the speaker's sound waves moving while it speaks, a paper plane when a text is sent, gentle fades between screens and springy buttons. Each lasts under half a second and only follows his own tap. Turn it off if it seems to distract him; his phone's own "reduce motion" setting turns it off too.
 
 The editor protects the rules that make the board usable with tremors:
 

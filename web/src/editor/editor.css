@@ -92,6 +92,14 @@ body.editing #root {
   background: var(--ed-accent-deep);
   border-color: var(--ed-accent-deep);
 }
+/* Just saved: a solid green moment, not a faded disabled button. */
+.ed .ed-primary.is-saved,
+.ed .ed-primary.is-saved:disabled {
+  opacity: 1;
+  background: #2f6b2a;
+  border-color: #2f6b2a;
+  color: #ffffff;
+}
 .ed .ed-large {
   min-height: 56px;
   padding: 12px 28px;
@@ -213,6 +221,23 @@ body.editing #root {
   margin: 0 0 12px;
   padding: 12px 16px;
   border-radius: 12px;
+}
+.ed-status p {
+  margin: 0;
+}
+.ed-progress {
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: rgba(24, 58, 102, 0.15);
+  overflow: hidden;
+}
+.ed-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ed-accent);
+  transition: width 400ms ease-out;
 }
 .ed-info {
   background: #e3ecf8;
@@ -782,5 +807,34 @@ body.editing #root {
   }
   .ed-header h1 {
     font-size: 26px;
+  }
+}
+
+/* Little touches for family. None play when the computer asks for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  /* A button in the preview glows briefly when it changes. */
+  .ed-mini-tile.is-changed {
+    animation: ed-changed 700ms ease-out;
+  }
+  /* The tick on "Saved" draws itself. */
+  .ed .tick-path {
+    stroke-dasharray: 22;
+    stroke-dashoffset: 22;
+    animation: ed-tick 380ms 40ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+}
+
+@keyframes ed-changed {
+  from {
+    box-shadow: 0 0 0 4px #ffd166, 0 0 18px 6px rgba(255, 209, 102, 0.8);
+  }
+  to {
+    box-shadow: 0 0 0 0 rgba(255, 209, 102, 0);
+  }
+}
+
+@keyframes ed-tick {
+  to {
+    stroke-dashoffset: 0;
   }
 }
