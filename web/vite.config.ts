@@ -21,7 +21,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,mp3,woff2}'],
         // The editor, Firebase library and voice model are only for family's
         // devices, so his phone does not download or store them.
-        globIgnores: ['**/Editor-*', '**/voice-*', '**/kokoro-*', '**/*.wasm'],
+        globIgnores: ['**/Editor-*', '**/voice-*', '**/kokoro-*', '**/*.wasm', '**/vision_bundle-*', '**/face-*', '**/photo-*'],
       },
       manifest: {
         name: 'Bro Board',

@@ -1,20 +1,22 @@
 // Turns a photo family pick into a small square JPEG for his buttons.
 
+import type { Square } from './crop';
+
 /** Size of the stored photo, in pixels. Big enough to look sharp on his tiles. */
 const SIZE = 360;
 
-/** Crop the middle square of the photo, shrink it, and return JPEG bytes (about 20-40 KB). */
-export async function squareJpeg(file: File): Promise<Uint8Array> {
-  const image = await openImage(file);
-  const side = Math.min(image.width, image.height);
+export type Photo = ImageBitmap | HTMLImageElement;
+
+/** Cut the chosen square out of the photo, shrink it, and return JPEG bytes (about 12-40 KB). */
+export async function cropToJpeg(image: Photo, square: Square): Promise<Uint8Array> {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('This browser cannot resize photos');
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, SIZE, SIZE);
-  if ('close' in image) image.close();
+  const half = square.size / 2;
+  ctx.drawImage(image, square.cx - half, square.cy - half, square.size, square.size, 0, 0, SIZE, SIZE);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
   if (!blob) throw new Error('Could not make the photo smaller');
   return new Uint8Array(await blob.arrayBuffer());
@@ -31,7 +33,7 @@ export class UnreadablePhoto extends Error {
  * Open the photo. The quick way works for JPEG and PNG everywhere; the second
  * way lets Safari open iPhone (HEIC) photos too.
  */
-async function openImage(file: File): Promise<ImageBitmap | HTMLImageElement> {
+export async function openImage(file: File): Promise<Photo> {
   const heic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
   if (file.type && !file.type.startsWith('image/')) throw new UnreadablePhoto(false);
   try {
