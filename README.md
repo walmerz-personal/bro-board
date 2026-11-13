@@ -12,7 +12,7 @@ Family can change the buttons remotely from their own phone or computer.
 
 ## Status
 
-Stages 1 and 2 are built: categories, items, Speak and Show big, plus remote editing by family. Texting (stage 3) comes next.
+All three stages are built: categories, items, Speak and Show big; remote editing by family; and texting, which opens his Messages app with the person and message filled in.
 
 - [Changing his board](docs/family-editing.md): the editor, his private link, and adding approved editors
 - [Product requirements (PRD)](docs/PRD.md): what the app must do and why
@@ -61,6 +61,13 @@ Then, in a second terminal:
 cd web
 npm run dev:local
 ```
+
+### Texting (stage 3)
+
+- Family add people (a name and a mobile number) in the editor's **People he can text** section. Numbers without a `+` are taken as US / Canada numbers and stored as `+1…`. With nobody listed, the Text button is hidden.
+- On his phone: Message screen, then **Text**, then **Text who?**, then **Send this text?** (Yes / No), and finally his Messages app opens through an `sms:` link (`web/src/texting.ts`). The words are the phrase plus "(sent from Bro Board)". When he comes back, the board is on Home.
+- A website cannot send a text itself; he taps Send in Messages, and it comes from his own number.
+- Names and numbers are stored with his board in Firebase, so anyone with his private link could read them. They are never in this repository; the tests use made-up 555 numbers.
 
 `npm run test:rules` checks the security rules against a local copy of Firebase. GitHub runs it on every pull request too. To publish changed rules, deploy `firebase/` with the Firebase CLI (`firebase deploy --only firestore`).
 

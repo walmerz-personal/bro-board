@@ -505,6 +505,10 @@ body.editing #root {
   border-color: #c4473a;
   background: #fff6f4;
 }
+.ed .ed-ok-text {
+  color: #164a28;
+  font-weight: 700;
+}
 .ed .ed-bad-text {
   color: #9a2b1f;
   font-weight: 700;

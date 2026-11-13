@@ -14,11 +14,13 @@ import {
   type Board,
   type Category,
   type Item,
+  type Recipient,
 } from '../board';
 import { COLOR_NAMES, PALETTE, colorFor, swatchStyle, type ColorName } from '../colors';
 import { audioId } from '../remote/audioId';
 import { VOICE } from '../remote/config';
 import { recordingFor } from '../speech';
+import { formatPhone, normalizePhone, textBody } from '../texting';
 import * as db from './db';
 import './editor.css';
 
@@ -468,6 +470,8 @@ function Workspace() {
             </button>
           </section>
 
+          <PeopleEditor board={draft} onChange={setDraft} />
+
           <SettingsEditor board={draft} onChange={setDraft} />
 
           <section className="ed-card">
@@ -580,6 +584,19 @@ function PhonePreview({
             )}
           />
         ))}
+      {paginate(board.recipients ?? []).map((page, p, all) =>
+        (board.recipients?.length ?? 0) === 0 ? null : (
+          <MiniScreen
+            key={`people-${p}`}
+            title={`Text who?${all.length > 1 ? ` · screen ${p + 1}` : ''}`}
+            tiles={page.map((t) =>
+              t.kind === 'more'
+                ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
+                : { key: t.entry.id, label: t.entry.name, icon: t.entry.icon, style: swatchStyle(colorFor(t.entry)) },
+            )}
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -872,6 +889,83 @@ function IconPicker({ icon, onPick }: { icon: string; onPick: (icon: string) => 
   );
 }
 
+function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  // What they typed stays as typed; the board keeps the international form.
+  const [text, setText] = useState(() => (value ? formatPhone(value) : ''));
+  const normalized = normalizePhone(text);
+  // Follow changes made elsewhere (Undo, or loading an earlier version).
+  useEffect(() => {
+    if (value !== text && value !== normalizePhone(text)) setText(value ? formatPhone(value) : '');
+  }, [value, text]);
+  return (
+    <label className="ed-field">
+      <span>Mobile number</span>
+      <input
+        className={normalized ? '' : 'ed-bad'}
+        type="tel"
+        inputMode="tel"
+        autoComplete="off"
+        placeholder="(555) 212-3456"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          onChange(normalizePhone(e.target.value) ?? e.target.value);
+        }}
+      />
+      <small className={normalized ? 'ed-ok-text' : 'ed-bad-text'}>
+        {normalized
+          ? `Texts go to ${formatPhone(normalized)}`
+          : text.trim()
+            ? 'Not a full number yet. US numbers need 10 digits; others start with +.'
+            : 'Needs a number'}
+      </small>
+    </label>
+  );
+}
+
+function PeopleEditor({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
+  const people = board.recipients ?? [];
+  const set = (next: Recipient[]) => onChange({ ...board, recipients: next });
+  const update = (i: number, patch: Partial<Recipient>) => set(people.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+  return (
+    <section className="ed-card">
+      <h2>People he can text</h2>
+      <p className="ed-hint">
+        When anyone is listed here, his message screen gets a Text button. He picks a person, says Yes, and his
+        Messages app opens with the words filled in, for example "{textBody('I am hungry.')}". He taps Send there; it
+        comes from his own number.
+      </p>
+      {people.length === 0 && <p className="ed-quiet">Nobody yet, so the Text button is hidden.</p>}
+      {people.map((person, i) => (
+        <div className="ed-item ed-person" key={person.id}>
+          <IconPicker icon={person.icon} onPick={(icon) => update(i, { icon })} />
+          <div className="ed-item-fields">
+            <LabelInput name="Name on his button" value={person.name} onChange={(name) => update(i, { name })} />
+            <PhoneInput value={person.phone} onChange={(phone) => update(i, { phone })} />
+          </div>
+          <RowButtons
+            first={i === 0}
+            last={i === people.length - 1}
+            onMove={(by) => set(move(people, i, by))}
+            onRemove={() => {
+              if (window.confirm(`Remove ${person.name} from the people he can text?`)) {
+                set(people.filter((_, j) => j !== i));
+              }
+            }}
+            what={person.name}
+          />
+        </div>
+      ))}
+      <button
+        className="ed-add"
+        onClick={() => set([...people, { id: makeId('person'), name: 'New person', phone: '', icon: 'family' }])}
+      >
+        <PlusIcon /> Add a person
+      </button>
+    </section>
+  );
+}
+
 function Choice({
   label,
   hint,
@@ -914,10 +1008,10 @@ function SettingsEditor({ board, onChange }: { board: Board; onChange: (b: Board
           hint="Stops one shaky press counting twice."
           value={s.repeatDelayMs}
           options={[
-            [300, 'A third of a second'],
-            [600, 'Just over half a second (start here)'],
+            [300, '0.3 seconds'],
+            [600, '0.6 seconds (start here)'],
             [1000, '1 second'],
-            [1500, '1½ seconds'],
+            [1500, '1.5 seconds'],
             [2000, '2 seconds'],
           ]}
           onChange={(repeatDelayMs) => set({ repeatDelayMs })}
@@ -927,10 +1021,10 @@ function SettingsEditor({ board, onChange }: { board: Board; onChange: (b: Board
           hint="Try a short hold if brushes count as presses."
           value={s.holdMs}
           options={[
-            [0, 'No hold needed (start here)'],
-            [200, 'A fifth of a second'],
-            [400, 'Under half a second'],
-            [600, 'Just over half a second'],
+            [0, 'No hold (start here)'],
+            [200, '0.2 seconds'],
+            [400, '0.4 seconds'],
+            [600, '0.6 seconds'],
             [1000, '1 second'],
           ]}
           onChange={(holdMs) => set({ holdMs })}
@@ -940,10 +1034,10 @@ function SettingsEditor({ board, onChange }: { board: Board; onChange: (b: Board
           hint="Only used for a phrase that has no recording yet."
           value={s.speechRate}
           options={[
-            [0.7, 'Slow'],
-            [0.9, 'A little slow (start here)'],
+            [0.7, 'Slowest'],
+            [0.9, 'Slower (start here)'],
             [1, 'Normal'],
-            [1.2, 'A little fast'],
+            [1.2, 'Faster'],
           ]}
           onChange={(speechRate) => set({ speechRate })}
         />

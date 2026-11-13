@@ -25,6 +25,18 @@ The editor protects the rules that make the board usable with tremors:
 
 Press **Save changes** when you're done. **Undo changes** throws away anything you haven't saved. **Earlier versions** keeps the last 10 saves, so you can bring an old one back and save it again.
 
+## People he can text
+
+In the **People he can text** section, add each person with:
+
+- **Name on his button**: 3 words or fewer, for example "Mum" or "Nurse station".
+- **Mobile number**: type it the usual way, for example `(555) 212-3456`. US and Canada numbers need all 10 digits; for another country start with `+` and the country code. The editor shows where texts will go, and Save stays off until the number is complete.
+- **Picture**: tap **Change picture** to choose one for his button.
+
+When at least one person is listed, his message screen gets a purple **Text** button. He picks a person, sees "Send this text?" with big **Yes, text** and **No** buttons, and Yes opens his Messages app with the person and the words filled in, for example "I am hungry. (sent from Bro Board)". He taps Send there; the text comes from his own number. When he comes back, Bro Board is on its Home screen.
+
+Anyone with his private link could see the names and numbers on this list, the same as his buttons, so keep the link to family and caregivers.
+
 ## Voice recordings
 
 When you save a new or changed phrase, the editor makes a natural voice recording for it (the same voice as the rest of the board) and sends it to his phone. Keep the editor open until it says the recordings are ready.

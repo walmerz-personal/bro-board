@@ -132,6 +132,8 @@ This is a first draft from the examples given. Family should change wording to m
 
 ## 8. Texting
 
+*Built in stage 3. The text reads as the phrase followed by "(sent from Bro Board)". Numbers default to US / Canada. After Messages opens, the board returns to Home.*
+
 - A website is not allowed to send a text by itself. The app opens his Messages app with the person and the phrase filled in, and he taps Send.
 - The text is sent from his own number, so recipients recognise it. It costs nothing beyond his phone plan.
 - A Yes / No confirm comes before Messages opens, so a stray tap does not start a text.

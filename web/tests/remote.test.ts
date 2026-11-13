@@ -125,3 +125,35 @@ describe('colours', () => {
     expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"vibrate":"no"'))).toBeNull();
   });
 });
+
+describe('texting', () => {
+  it('turns typed numbers into the international form', async () => {
+    const { normalizePhone } = await import('../src/texting');
+    expect(normalizePhone('(555) 212-3456')).toBe('+15552123456');
+    expect(normalizePhone('555.212.3456')).toBe('+15552123456');
+    expect(normalizePhone('1 555 212 3456')).toBe('+15552123456');
+    expect(normalizePhone('+44 7700 900123')).toBe('+447700900123');
+    expect(normalizePhone('212-3456')).toBeNull();
+    expect(normalizePhone('call me')).toBeNull();
+    expect(normalizePhone('')).toBeNull();
+  });
+
+  it('builds a Messages link with the phrase and the note', async () => {
+    const { smsLink, formatPhone } = await import('../src/texting');
+    expect(smsLink('+15552123456', 'I am hungry.')).toBe(
+      'sms:+15552123456?&body=I%20am%20hungry.%20(sent%20from%20Bro%20Board)',
+    );
+    expect(formatPhone('+15552123456')).toBe('(555) 212-3456');
+    expect(formatPhone('+447700900123')).toBe('+447700900123');
+  });
+
+  it('accepts people with complete numbers and rejects others', () => {
+    const add = (phone: string, name = 'Mum') =>
+      JSON.stringify({ ...JSON.parse(json), recipients: [{ id: 'mum', name, phone, icon: 'family' }] });
+    expect(parseBoard(add('+15552123456'))?.recipients).toEqual([
+      { id: 'mum', name: 'Mum', phone: '+15552123456', icon: 'family' },
+    ]);
+    expect(parseBoard(add('555 212 3456'))).toBeNull();
+    expect(parseBoard(add('+15552123456', 'My very dear mother'))).toBeNull();
+  });
+});
