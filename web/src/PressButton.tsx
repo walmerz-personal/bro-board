@@ -1,10 +1,10 @@
 // A button that ignores shaky double taps and, optionally, quick brushes.
 
-import { createContext, useContext, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { shouldAcceptPress, type Settings } from './board';
 
 interface PressContextValue {
-  settings: Pick<Settings, 'repeatDelayMs' | 'holdMs'>;
+  settings: Pick<Settings, 'repeatDelayMs' | 'holdMs' | 'vibrate'>;
   /** Shared by every button, so a second tap anywhere is ignored. */
   lastAcceptedAt: { current: number | null };
 }
@@ -19,17 +19,27 @@ interface Props {
   className?: string;
   disabled?: boolean;
   label?: string;
+  style?: CSSProperties;
   children: ReactNode;
 }
 
-export function PressButton({ onPress, className, disabled, label, children }: Props) {
+/** How long a counted press stays visibly pressed after the finger lifts. */
+const SHOW_PRESSED_MS = 280;
+
+export function PressButton({ onPress, className, disabled, label, style, children }: Props) {
   const { settings, lastAcceptedAt } = useContext(PressContext);
   const downAt = useRef<number | null>(null);
+  // The pressed look is under his finger while it is down, so keep it showing
+  // for a moment afterwards: that is the "it counted" signal.
+  const [shown, setShown] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   return (
     <button
       type="button"
-      className={className}
+      className={shown ? `${className ?? ''} is-pressed` : className}
+      style={style}
       disabled={disabled}
       aria-label={label}
       onPointerDown={() => {
@@ -49,6 +59,17 @@ export function PressButton({ onPress, className, disabled, label, children }: P
         downAt.current = null;
         if (!accepted) return;
         lastAcceptedAt.current = now;
+        setShown(true);
+        window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setShown(false), SHOW_PRESSED_MS);
+        // A short buzz on phones that can, so he feels the press counted.
+        if (settings.vibrate !== false) {
+          try {
+            navigator.vibrate?.(18);
+          } catch {
+            // Not allowed here. The visible feedback is enough.
+          }
+        }
         onPress();
       }}
       onContextMenu={(e) => e.preventDefault()}

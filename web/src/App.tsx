@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import boardData from './data/default-board.json';
 import { useBoard } from './boardSource';
 import { paginate, type Board, type Category, type Item, type Tile } from './board';
+import { colorFor, swatchStyle, type Swatch } from './colors';
 import { current, initialNav, navReducer, type NavAction, type NavState } from './nav';
 import { PressButton, PressContext } from './PressButton';
 import { FitText } from './FitText';
@@ -11,6 +12,9 @@ const starterBoard = boardData as Board;
 
 // The editor is only loaded on family's devices, never on his phone.
 const Editor = lazy(() => import('./editor/Editor'));
+
+/** How long "Said it" shows after something has been spoken. */
+const SAID_MS = 2500;
 
 function iconUrl(icon: string): string {
   return `${import.meta.env.BASE_URL}symbols/${icon}.svg`;
@@ -27,6 +31,8 @@ export function App() {
   return <BoardApp />;
 }
 
+type SpeakState = 'idle' | 'speaking' | 'said';
+
 function BoardApp() {
   const latest = useBoard(starterBoard);
   // A changed board is only swapped in on the first Home page, so buttons
@@ -39,12 +45,27 @@ function BoardApp() {
   const lastAcceptedAt = useRef<number | null>(null);
   const press = useMemo(() => ({ settings: board.settings, lastAcceptedAt }), [board]);
   const screen = current(nav);
-  const [speaking, setSpeaking] = useState(false);
+  const [speakState, setSpeakState] = useState<SpeakState>('idle');
+  // A one-tap answer (Yes, No) that was just spoken, shown on its tile.
+  const [saidId, setSaidId] = useState<string | null>(null);
+  const saidTimer = useRef<number | undefined>(undefined);
+
+  const showSaid = (id: string | null) => {
+    window.clearTimeout(saidTimer.current);
+    setSaidId(id);
+    setSpeakState('said');
+    saidTimer.current = window.setTimeout(() => {
+      setSaidId(null);
+      setSpeakState('idle');
+    }, SAID_MS);
+  };
 
   // Runs inside the tap itself, which phones require before they play sound.
-  const say = (phrase: string) => {
-    setSpeaking(true);
-    speak(phrase, board.settings.speechRate, () => setSpeaking(false));
+  const say = (phrase: string, answerId: string | null = null) => {
+    window.clearTimeout(saidTimer.current);
+    setSaidId(answerId);
+    setSpeakState('speaking');
+    speak(phrase, board.settings.speechRate, () => showSaid(answerId));
   };
 
   const sayLabel = (label: string) => {
@@ -54,7 +75,9 @@ function BoardApp() {
   // Leaving a screen stops anything still being spoken.
   const go = (action: NavAction) => {
     stopSpeaking();
-    setSpeaking(false);
+    window.clearTimeout(saidTimer.current);
+    setSpeakState('idle');
+    setSaidId(null);
     // Keep one spare step in the browser's history, so a stray swipe-back
     // on the phone goes back inside the board and does not close it.
     if (!window.history.state?.guard) window.history.pushState({ guard: true }, '');
@@ -64,20 +87,82 @@ function BoardApp() {
   useEffect(() => {
     const onSystemBack = () => {
       stopSpeaking();
-      setSpeaking(false);
+      setSpeakState('idle');
       dispatch({ type: 'back' });
     };
     window.addEventListener('popstate', onSystemBack);
     return () => window.removeEventListener('popstate', onSystemBack);
   }, []);
 
+  useEffect(() => () => window.clearTimeout(saidTimer.current), []);
+
   const atStart = nav.length === 1 && screen.name === 'home' && screen.page === 0;
   useEffect(() => {
     if (atStart && latest !== board) setBoard(latest);
   }, [atStart, latest, board]);
-  const category =
-    screen.name === 'items' ? board.categories.find((c) => c.id === screen.categoryId) : undefined;
-  const title = screen.name === 'home' ? 'I need…' : screen.name === 'items' ? (category?.label ?? '') : '';
+
+  const findCategory = (id: string) => board.categories.find((c) => c.id === id);
+  const category = screen.name === 'items' ? findCategory(screen.categoryId) : undefined;
+  const homePages = paginate(board.categories);
+  const itemPages = category ? paginate(category.items ?? []) : [];
+
+  let content: ReactNode = null;
+  let strip: ReactNode = null;
+
+  if (screen.name === 'home') {
+    strip = <TitleStrip title="Bro Board" page={screen.page} pages={homePages.length} />;
+    content = (
+      <Grid
+        tiles={homePages[screen.page]}
+        lastPage={screen.page === homePages.length - 1}
+        swatchOf={(c: Category) => colorFor(c)}
+        saidId={saidId}
+        onPick={(c: Category) => {
+          if (c.speakOnOpen && c.phrase) {
+            // Yes and No speak straight away and stay here, ready for the next question.
+            stopSpeaking();
+            say(c.phrase, c.id);
+            return;
+          }
+          go({ type: 'openCategory', category: c });
+          sayLabel(c.label);
+        }}
+        onMore={() => go({ type: 'more' })}
+      />
+    );
+  } else if (screen.name === 'items' && category) {
+    const swatch = colorFor(category);
+    strip = (
+      <TitleStrip title={category.label} page={screen.page} pages={itemPages.length} swatch={swatch} />
+    );
+    content = (
+      <Grid
+        tiles={itemPages[screen.page]}
+        lastPage={screen.page === itemPages.length - 1}
+        swatchOf={() => swatch}
+        saidId={null}
+        onPick={(item: Item) => {
+          go({ type: 'openItem', item });
+          sayLabel(item.label);
+        }}
+        onMore={() => go({ type: 'more' })}
+      />
+    );
+  } else if (screen.name === 'message') {
+    const owner = findCategory(screen.categoryId);
+    content = (
+      <MessageScreen
+        phrase={screen.phrase}
+        icon={screen.icon}
+        swatch={owner ? colorFor(owner) : null}
+        speakState={speakState}
+        onSpeak={() => say(screen.phrase)}
+        onShowBig={() => go({ type: 'showBig' })}
+      />
+    );
+  } else if (screen.name === 'big') {
+    content = <BigScreen phrase={screen.phrase} icon={screen.icon} />;
+  }
 
   return (
     <PressContext.Provider value={press}>
@@ -92,53 +177,52 @@ function BoardApp() {
             <span>Home</span>
           </PressButton>
         </header>
-        {title && <h1 className="title">{title}</h1>}
-
-        {screen.name === 'big' && <BigScreen phrase={screen.phrase} />}
-
-        {screen.name === 'home' && (
-          <Grid
-            tiles={paginate(board.categories)[screen.page]}
-            onPick={(c: Category) => {
-              go({ type: 'openCategory', category: c });
-              if (c.speakOnOpen && c.phrase) say(c.phrase);
-              else sayLabel(c.label);
-            }}
-            onMore={() => go({ type: 'more' })}
-          />
-        )}
-
-        {screen.name === 'items' && category && (
-          <Grid
-            tiles={paginate(category.items ?? [])[screen.page]}
-            onPick={(item: Item) => {
-              go({ type: 'openItem', item });
-              sayLabel(item.label);
-            }}
-            onMore={() => go({ type: 'more' })}
-          />
-        )}
-
-        {screen.name === 'message' && (
-          <MessageScreen
-            phrase={screen.phrase}
-            icon={screen.icon}
-            speaking={speaking}
-            onSpeak={() => say(screen.phrase)}
-            onShowBig={() => go({ type: 'showBig' })}
-          />
-        )}
+        {strip}
+        {content}
+        <p className="visually-hidden" aria-live="polite">
+          {speakState === 'said' ? 'Said it.' : ''}
+        </p>
       </div>
     </PressContext.Provider>
   );
 }
 
+/** Where he is: the screen's name and, when there is more than one page, which page. */
+function TitleStrip({
+  title,
+  page,
+  pages,
+  swatch,
+}: {
+  title: string;
+  page: number;
+  pages: number;
+  swatch?: Swatch;
+}) {
+  return (
+    <div className={swatch ? 'strip strip-tinted' : 'strip'} style={swatch ? swatchStyle(swatch) : undefined}>
+      <h1 className="strip-title">{title}</h1>
+      {pages > 1 && (
+        <span className="strip-page">
+          Page {page + 1} of {pages}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Grid<T extends { id: string; label: string; icon: string }>({
   tiles,
+  lastPage,
+  swatchOf,
+  saidId,
   onPick,
   onMore,
 }: {
   tiles: Tile<T>[];
+  lastPage: boolean;
+  swatchOf: (entry: T) => Swatch;
+  saidId: string | null;
   onPick: (entry: T) => void;
   onMore: () => void;
 }) {
@@ -147,12 +231,24 @@ function Grid<T extends { id: string; label: string; icon: string }>({
       {tiles.map((tile) =>
         tile.kind === 'more' ? (
           <PressButton key="more" className="tile tile-more" onPress={onMore}>
-            <MoreIcon />
-            <span className="tile-label">More</span>
+            {lastPage ? <StartIcon /> : <MoreIcon />}
+            <span className="tile-label">{lastPage ? 'Back to start' : 'More'}</span>
           </PressButton>
         ) : (
-          <PressButton key={tile.entry.id} className="tile" onPress={() => onPick(tile.entry)}>
-            <img className="tile-icon" src={iconUrl(tile.entry.icon)} alt="" draggable={false} />
+          <PressButton
+            key={tile.entry.id}
+            className={tile.entry.id === saidId ? 'tile is-said' : 'tile'}
+            style={swatchStyle(swatchOf(tile.entry))}
+            onPress={() => onPick(tile.entry)}
+          >
+            <span className="tile-picture">
+              <img className="tile-icon" src={iconUrl(tile.entry.icon)} alt="" draggable={false} />
+              {tile.entry.id === saidId && (
+                <span className="tile-said">
+                  <CheckIcon />
+                </span>
+              )}
+            </span>
             <span className="tile-label">{tile.entry.label}</span>
           </PressButton>
         ),
@@ -164,31 +260,40 @@ function Grid<T extends { id: string; label: string; icon: string }>({
 function MessageScreen({
   phrase,
   icon,
-  speaking,
+  swatch,
+  speakState,
   onSpeak,
   onShowBig,
 }: {
   phrase: string;
   icon: string;
-  speaking: boolean;
+  swatch: Swatch | null;
+  speakState: SpeakState;
   onSpeak: () => void;
   onShowBig: () => void;
 }) {
   const speechAvailable = canSpeak(phrase);
+  const speakLabel = !speechAvailable
+    ? 'No voice on this phone'
+    : speakState === 'speaking'
+      ? 'Speaking…'
+      : speakState === 'said'
+        ? 'Said it'
+        : 'Speak';
 
   return (
     <main className="message">
-      <div className="message-phrase">
+      <div className="message-phrase" style={swatch ? swatchStyle(swatch) : undefined}>
         <img className="message-icon" src={iconUrl(icon)} alt="" draggable={false} />
         <FitText text={phrase} className="message-text" />
       </div>
       <PressButton
-        className={`action action-speak${speaking ? ' is-active' : ''}`}
+        className={`action action-speak is-${speakState}`}
         disabled={!speechAvailable}
         onPress={onSpeak}
       >
-        <SpeakIcon />
-        <span>{speechAvailable ? (speaking ? 'Speaking…' : 'Speak') : 'No voice on this phone'}</span>
+        {speakState === 'said' ? <CheckIcon /> : <SpeakIcon />}
+        <span>{speakLabel}</span>
       </PressButton>
       <PressButton className="action action-big" onPress={onShowBig}>
         <BigIcon />
@@ -198,7 +303,7 @@ function MessageScreen({
   );
 }
 
-function BigScreen({ phrase }: { phrase: string }) {
+function BigScreen({ phrase, icon }: { phrase: string; icon: string }) {
   // Keep the screen on while the message is showing, where the phone allows it.
   useEffect(() => {
     let lock: WakeLockSentinel | null = null;
@@ -227,6 +332,7 @@ function BigScreen({ phrase }: { phrase: string }) {
 
   return (
     <main className="big">
+      <img className="big-icon" src={iconUrl(icon)} alt="" draggable={false} />
       <FitText text={phrase} className="big-text" />
     </main>
   );
@@ -234,7 +340,7 @@ function BigScreen({ phrase }: { phrase: string }) {
 
 // Simple drawn icons for the controls. Pictures on the tiles come from Mulberry Symbols.
 
-function Svg({ children }: { children: React.ReactNode }) {
+function Svg({ children }: { children: ReactNode }) {
   return (
     <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -257,6 +363,11 @@ const MoreIcon = () => (
     <path d="M13 5l7 7-7 7M20 12H4" />
   </Svg>
 );
+const StartIcon = () => (
+  <Svg>
+    <path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3" />
+  </Svg>
+);
 const SpeakIcon = () => (
   <Svg>
     <path d="M4 9v6h4l5 4V5L8 9H4zM16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" />
@@ -265,5 +376,10 @@ const SpeakIcon = () => (
 const BigIcon = () => (
   <Svg>
     <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+  </Svg>
+);
+const CheckIcon = () => (
+  <Svg>
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
   </Svg>
 );

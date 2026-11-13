@@ -1,15 +1,30 @@
+/*
+  His board. Warm and calm: a soft colour per category, dark text on light
+  tints, one readable typeface, and a press that visibly sinks and stays
+  pressed for a moment so he can see it counted. No looping motion.
+*/
+
 :root {
-  --ink: #111111;
-  --paper: #ffffff;
-  --page: #e9edf2;
-  --bar: #1c2b3a;
-  --bar-ink: #ffffff;
-  --border: #111111;
-  --pressed: #ffe066;
-  --speak: #0b6b3a;
-  --big: #0b4f9e;
-  --more: #dfe7f1;
-  --gap: 10px;
+  --ink: #1f1b16;
+  --ink-soft: #4b4339;
+  --page: #f4efe6;
+  --paper: #fffdf8;
+  --bar: #2e2924;
+  --bar-ink: #fffaf2;
+  --focus: #1b5fd6;
+  --speak: #23683a;
+  --speak-deep: #164a28;
+  --big: #2a5591;
+  --big-deep: #1b3a66;
+  --gap: 14px;
+  --radius: 22px;
+  --font: 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Neutral defaults; each button overrides these with its category colour. */
+  --tile: var(--paper);
+  --tile-pressed: #e8dfd0;
+  --tile-deep: #6b5a3c;
+  color-scheme: light;
+  accent-color: var(--speak);
 }
 
 * {
@@ -28,7 +43,7 @@ body,
 body {
   background: var(--page);
   color: var(--ink);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: var(--font);
   /* Nothing on the page scrolls, zooms or gets selected by a stray touch. */
   overflow: hidden;
   overscroll-behavior: none;
@@ -38,11 +53,32 @@ body {
   -webkit-touch-callout: none;
 }
 
+::selection {
+  background: #f3c98b;
+  color: var(--ink);
+}
+
 button {
   font: inherit;
   color: inherit;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+/* A strong, two-tone ring for anyone using a keyboard or switch. */
+button:focus-visible {
+  outline: 4px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .app {
@@ -60,7 +96,7 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: var(--gap);
   height: 96px;
-  padding: var(--gap);
+  padding: 12px var(--gap);
   background: var(--bar);
   color: var(--bar-ink);
 }
@@ -72,11 +108,12 @@ button {
   justify-content: center;
   gap: 10px;
   border: 3px solid var(--bar-ink);
-  border-radius: 16px;
+  border-radius: 18px;
   background: transparent;
   color: var(--bar-ink);
-  font-size: 26px;
+  font-size: 27px;
   font-weight: 800;
+  transition: background-color 120ms ease-out, transform 120ms ease-out;
 }
 
 .bar-button .ui-icon {
@@ -85,22 +122,53 @@ button {
 }
 
 .bar-button:disabled {
-  opacity: 0.25;
+  opacity: 0.3;
+  cursor: default;
 }
 
-.bar-button:active:not(:disabled) {
-  background: var(--pressed);
-  color: var(--ink);
+.bar-button:active:not(:disabled),
+.bar-button.is-pressed {
+  background: var(--bar-ink);
+  color: var(--bar);
+  transform: scale(0.97);
 }
 
-.title {
+/* The name of this screen, and which page of it, so he always knows where he is. */
+.strip {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 52px;
+  margin: var(--gap) var(--gap) 0;
+  padding: 6px 16px;
+  border-radius: 16px;
+}
+
+.strip-tinted {
+  background: var(--tile);
+  box-shadow: inset 0 0 0 3px var(--tile-deep);
+}
+
+.strip-title {
   margin: 0;
-  padding: 8px var(--gap) 0;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1.1;
   font-weight: 800;
   text-align: center;
+  text-wrap: balance;
+}
+
+.strip-page {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--bar);
+  color: var(--bar-ink);
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .ui-icon {
@@ -109,7 +177,7 @@ button {
   flex: none;
 }
 
-/* The grid: 2 across, 3 down, filling the screen. */
+/* The grid: 2 across, 3 down, filling the screen, in every orientation. */
 .grid {
   flex: 1;
   min-height: 0;
@@ -123,48 +191,105 @@ button {
 .tile {
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px;
-  border: 4px solid var(--border);
-  border-radius: 20px;
-  background: var(--paper);
+  gap: 4px;
+  padding: 10px 8px 8px;
+  border: 3px solid var(--tile-deep);
+  border-radius: var(--radius);
+  background: var(--tile);
+  color: var(--ink);
+  box-shadow: 0 4px 10px rgba(70, 45, 20, 0.14);
+  transition:
+    background-color 140ms ease-out,
+    transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    box-shadow 140ms ease-out;
 }
 
-.tile:active {
-  background: var(--pressed);
+/* The press: the button sinks and deepens, and stays that way for a moment. */
+.tile:active,
+.tile.is-pressed {
+  background: var(--tile-pressed);
+  transform: translateY(3px) scale(0.97);
+  box-shadow: 0 1px 2px rgba(70, 45, 20, 0.2);
+}
+
+.tile-picture {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .tile-icon {
-  flex: 1;
-  min-height: 0;
   width: 100%;
+  height: 100%;
+  min-height: 0;
   object-fit: contain;
   pointer-events: none;
 }
 
+/* Two lines are always reserved, so pictures line up across a row. */
 .tile-label {
-  flex: none;
-  font-size: clamp(22px, 7.2vmin, 32px);
+  width: 100%;
+  min-height: 2.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(22px, 7vmin, 32px);
   line-height: 1.1;
   font-weight: 800;
   text-align: center;
   text-wrap: balance;
 }
 
+/* A one-tap answer that was just spoken: a tick on the picture. */
+.tile.is-said {
+  background: var(--tile-pressed);
+  box-shadow: inset 0 0 0 4px var(--tile-deep), 0 4px 10px rgba(70, 45, 20, 0.14);
+}
+
+.tile-said {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--tile-deep);
+  color: #ffffff;
+}
+
+.tile-said .ui-icon {
+  width: 32px;
+  height: 32px;
+}
+
+/* More (and Back to start) is navigation, so it looks like the top bar. */
 .tile-more {
-  background: var(--more);
+  background: var(--bar);
+  border-color: var(--bar);
+  color: var(--bar-ink);
   /* Always the bottom-right button, even on a part-filled screen. */
   grid-column-end: -1;
   grid-row-end: -1;
 }
 
+.tile-more:active,
+.tile-more.is-pressed {
+  background: #4a423a;
+}
+
 .tile-more .ui-icon {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
+  align-self: end;
 }
 
 /* Message screen: the phrase, then one large button per way of saying it. */
@@ -183,9 +308,10 @@ button {
   grid-template-columns: 36% 1fr;
   align-items: center;
   gap: var(--gap);
-  padding: 10px;
-  border-radius: 20px;
-  background: var(--paper);
+  padding: 12px;
+  border: 3px solid var(--tile-deep);
+  border-radius: var(--radius);
+  background: var(--tile);
 }
 
 .message-icon {
@@ -211,8 +337,9 @@ button {
   display: block;
   width: 100%;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.12;
   text-align: center;
+  text-wrap: balance;
   overflow-wrap: normal;
 }
 
@@ -222,11 +349,17 @@ button {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  border: 4px solid var(--border);
-  border-radius: 20px;
+  border: 3px solid transparent;
+  border-radius: var(--radius);
   color: #ffffff;
   font-size: clamp(28px, 9vmin, 44px);
   font-weight: 800;
+  box-shadow: 0 4px 10px rgba(70, 45, 20, 0.16);
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    box-shadow 140ms ease-out;
 }
 
 .action .ui-icon {
@@ -243,38 +376,90 @@ button {
 }
 
 .action:active,
-.action.is-active {
-  background: var(--pressed);
-  color: var(--ink);
+.action.is-pressed {
+  transform: translateY(3px) scale(0.98);
+  box-shadow: 0 1px 2px rgba(70, 45, 20, 0.2);
+}
+
+.action-speak:active,
+.action-speak.is-pressed {
+  background: var(--speak-deep);
+}
+
+.action-big:active,
+.action-big.is-pressed {
+  background: var(--big-deep);
+}
+
+/* While speaking, and just after: light with a strong green edge, so it reads as a state, not a press. */
+.action-speak.is-speaking,
+.action-speak.is-said {
+  background: #e3f1e0;
+  border-color: var(--speak);
+  color: var(--speak-deep);
 }
 
 .action:disabled {
-  background: #777777;
-  font-size: 24px;
+  background: #6b645b;
+  color: #ffffff;
+  font-size: 26px;
+  box-shadow: none;
 }
 
-/* Show big: the phrase fills everything below the bar. */
+/* Show big: the picture, then the phrase as large as it fits. */
 .big {
   flex: 1;
   min-height: 0;
+  display: grid;
+  grid-template-rows: 26% 1fr;
+  gap: 8px;
   padding: var(--gap);
   background: var(--paper);
 }
 
-/* When the phone is held sideways, use 3 across and 2 down. */
-@media (orientation: landscape) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-  }
+.big-icon {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  pointer-events: none;
+}
 
+/* Sideways: the same 2 across and 3 down, in the same places, just wider. */
+@media (orientation: landscape) {
   .bar {
-    height: 72px;
+    height: 68px;
     padding: 6px var(--gap);
   }
 
-  .title {
-    display: none;
+  .strip {
+    min-height: 40px;
+    margin-top: 8px;
+    padding: 2px 12px;
+  }
+
+  .strip-title {
+    font-size: 22px;
+  }
+
+  .grid {
+    gap: 10px;
+    padding: 10px var(--gap);
+  }
+
+  .tile {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+    justify-items: start;
+    gap: 12px;
+    padding: 6px 14px;
+  }
+
+  .tile-label {
+    min-height: 0;
+    justify-content: flex-start;
+    text-align: left;
+    font-size: clamp(20px, 6vmin, 30px);
   }
 
   .message {
@@ -289,5 +474,28 @@ button {
 
   .action {
     flex-direction: column;
+  }
+
+  .big {
+    grid-template-rows: none;
+    grid-template-columns: 22% 1fr;
+  }
+}
+
+/* When the phone asks for less motion: colour changes only, no movement. */
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .action,
+  .bar-button {
+    transition: background-color 120ms linear;
+  }
+
+  .tile:active,
+  .tile.is-pressed,
+  .action:active,
+  .action.is-pressed,
+  .bar-button:active:not(:disabled),
+  .bar-button.is-pressed {
+    transform: none;
   }
 }
