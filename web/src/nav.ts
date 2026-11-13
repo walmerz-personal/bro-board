@@ -6,8 +6,8 @@ import { paginate } from './board';
 export type Screen =
   | { name: 'home'; page: number }
   | { name: 'items'; categoryId: string; page: number }
-  | { name: 'message'; phrase: string; icon: string }
-  | { name: 'big'; phrase: string };
+  | { name: 'message'; phrase: string; icon: string; categoryId: string }
+  | { name: 'big'; phrase: string; icon: string; categoryId: string };
 
 /** A stack of screens. The last one is showing. Back removes it. */
 export type NavState = Screen[];
@@ -34,10 +34,15 @@ export function navReducer(board: Board, state: NavState, action: NavAction): Na
       if (category.items && category.items.length > 0) {
         return [...state, { name: 'items', categoryId: category.id, page: 0 }];
       }
-      return [...state, { name: 'message', phrase: category.phrase ?? category.label, icon: category.icon }];
+      return [
+        ...state,
+        { name: 'message', phrase: category.phrase ?? category.label, icon: category.icon, categoryId: category.id },
+      ];
     }
-    case 'openItem':
-      return [...state, { name: 'message', phrase: action.item.phrase, icon: action.item.icon }];
+    case 'openItem': {
+      const categoryId = screen.name === 'items' ? screen.categoryId : '';
+      return [...state, { name: 'message', phrase: action.item.phrase, icon: action.item.icon, categoryId }];
+    }
     case 'more': {
       // "More" swaps the page in place, so Back always goes up a level.
       if (screen.name === 'home') {
@@ -52,7 +57,9 @@ export function navReducer(board: Board, state: NavState, action: NavAction): Na
       return state;
     }
     case 'showBig':
-      return screen.name === 'message' ? [...state, { name: 'big', phrase: screen.phrase }] : state;
+      return screen.name === 'message'
+        ? [...state, { name: 'big', phrase: screen.phrase, icon: screen.icon, categoryId: screen.categoryId }]
+        : state;
     case 'back':
       if (state.length > 1) return state.slice(0, -1);
       // On the home screen, Back returns to the first page.

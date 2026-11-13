@@ -1,7 +1,7 @@
 // The editor page, for approved family members. Opened with …/bro-board/#edit.
 // Nothing here is reachable from his screens.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import starter from '../data/default-board.json';
 import {
@@ -15,6 +15,7 @@ import {
   type Category,
   type Item,
 } from '../board';
+import { COLOR_NAMES, PALETTE, colorFor, swatchStyle, type ColorName } from '../colors';
 import { audioId } from '../remote/audioId';
 import { VOICE } from '../remote/config';
 import { recordingFor } from '../speech';
@@ -53,6 +54,19 @@ function formatTime(date: Date | null): string {
   return date ? date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'just now';
 }
 
+/** Turn a technical error into words a family member can act on. */
+function friendly(error: unknown): string {
+  const code = (error as { code?: string }).code ?? '';
+  if (code.includes('permission-denied')) {
+    return 'This account is not allowed to change the board. Check you are signed in with the approved email.';
+  }
+  if (code.includes('unavailable') || code.includes('network') || !navigator.onLine) {
+    return 'No internet connection. Your changes are still here; try again when you are back online.';
+  }
+  if (code.includes('unauthenticated')) return 'You have been signed out. Sign in again, then try once more.';
+  return `Something went wrong${code ? ` (${code})` : ''}. Your changes are still here; please try again.`;
+}
+
 export default function Editor() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [approved, setApproved] = useState<boolean | null>(null);
@@ -61,7 +75,14 @@ export default function Editor() {
   useEffect(() => {
     document.body.classList.add('editing');
     document.title = 'Bro Board editor';
-    return () => document.body.classList.remove('editing');
+    // His board blocks pinch-zoom; family editing it may need to zoom.
+    const viewport = document.querySelector('meta[name="viewport"]');
+    const before = viewport?.getAttribute('content') ?? null;
+    viewport?.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    return () => {
+      document.body.classList.remove('editing');
+      if (viewport && before) viewport.setAttribute('content', before);
+    };
   }, []);
 
   useEffect(
@@ -86,36 +107,41 @@ export default function Editor() {
     } catch (e) {
       const code = (e as { code?: string }).code ?? '';
       if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
-        setSignInError(`Sign-in did not work (${code || String(e)}). Please try again.`);
+        setSignInError(
+          code === 'auth/popup-blocked'
+            ? 'Your browser blocked the sign-in window. Allow pop-ups for this page, then try again.'
+            : friendly(e),
+        );
       }
     }
   };
 
   let body;
   if (user === undefined) {
-    body = <p>Loading…</p>;
+    body = <p className="ed-quiet">Loading…</p>;
   } else if (!user) {
     body = (
-      <section className="ed-card ed-center">
-        <h2>Sign in to change his board</h2>
-        <p>Only family members on the approved list can make changes.</p>
-        <button className="ed-primary" onClick={signIn}>
+      <section className="ed-card ed-welcome">
+        <img src={iconUrl('family')} alt="" className="ed-welcome-art" />
+        <h2>Change his buttons from here</h2>
+        <p>Sign in with the Google account the family added to Bro Board.</p>
+        <button className="ed-primary ed-large" onClick={signIn}>
           Sign in with Google
         </button>
-        {signInError && <p className="ed-error">{signInError}</p>}
+        {signInError && <p className="ed-status ed-error">{signInError}</p>}
       </section>
     );
   } else if (approved === null) {
-    body = <p>Checking your access…</p>;
+    body = <p className="ed-quiet">Checking your access…</p>;
   } else if (!approved) {
     body = (
-      <section className="ed-card ed-center">
-        <h2>This account is not on the approved list</h2>
+      <section className="ed-card ed-welcome">
+        <h2>This account isn't on the list yet</h2>
         <p>
-          You are signed in as <strong>{user.email}</strong>. Ask the family member who manages Bro Board to
-          add this email, then reload this page.
+          You're signed in as <strong>{user.email}</strong>. Ask the family member who set up Bro Board to add this
+          email to the approved editors, then reload this page.
         </p>
-        <button onClick={() => void db.signOut()}>Sign out</button>
+        <button onClick={() => void db.signOut()}>Use a different account</button>
       </section>
     );
   } else {
@@ -125,8 +151,10 @@ export default function Editor() {
   return (
     <div className="ed">
       <header className="ed-header">
-        <h1>Bro Board editor</h1>
-        {user && (
+        <h1>
+          Bro Board <span>editor</span>
+        </h1>
+        {user && approved && (
           <div className="ed-user">
             <span>{user.email}</span>
             <button onClick={() => void db.signOut()}>Sign out</button>
@@ -149,6 +177,8 @@ function Workspace() {
   const [busy, setBusy] = useState(false);
   const [versions, setVersions] = useState<db.Version[] | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const json = draft ? JSON.stringify(draft) : '';
   const dirty = !!draft && json !== savedJson;
@@ -196,8 +226,8 @@ function Workspace() {
       setVoiceStatus({
         kind: 'error',
         text:
-          `Could not make the voice recordings (${String(e)}). His phone uses its own voice for new ` +
-          'phrases until they are made. They are tried again each time you save or open this page.',
+          `Couldn't make the voice recordings. ${friendly(e)} Until they're made, his phone uses its own ` +
+          'voice for new phrases. They are tried again each time you save or open this page.',
       });
     } finally {
       run.running = false;
@@ -219,18 +249,18 @@ function Workspace() {
     (async () => {
       try {
         const boards = await db.listBoards();
-        const current = boards.find((b) => parseBoard(b.json));
-        if (!current) {
+        const found = boards.find((b) => parseBoard(b.json));
+        if (!found) {
           setBoardId(null);
           return;
         }
-        setBoardId(current.id);
-        setSavedJson(current.json);
-        setDraft(parseBoard(current.json));
-        void loadVersions(current.id);
-        void syncVoices(current.id, parseBoard(current.json)!);
+        setBoardId(found.id);
+        setSavedJson(found.json);
+        setDraft(parseBoard(found.json));
+        void loadVersions(found.id);
+        void syncVoices(found.id, parseBoard(found.json)!);
       } catch (e) {
-        setLoadError(String(e));
+        setLoadError(friendly(e));
       }
     })();
   }, [loadVersions, syncVoices]);
@@ -243,8 +273,8 @@ function Workspace() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  if (loadError) return <p className="ed-error">Could not load his board: {loadError}</p>;
-  if (boardId === undefined) return <p>Loading his board…</p>;
+  if (loadError) return <p className="ed-status ed-error">Couldn't load his board. {loadError}</p>;
+  if (boardId === undefined) return <p className="ed-quiet">Loading his board…</p>;
 
   if (boardId === null) {
     const create = async () => {
@@ -258,19 +288,22 @@ function Workspace() {
         setDraft(starterBoard);
         void loadVersions(id);
       } catch (e) {
-        setStatus({ kind: 'error', text: `Could not create the board: ${String(e)}` });
+        setStatus({ kind: 'error', text: `Couldn't create the board. ${friendly(e)}` });
       } finally {
         setBusy(false);
       }
     };
     return (
-      <section className="ed-card ed-center">
-        <h2>No board yet</h2>
-        <p>Create his board from the starter buttons. You get a private link to open on his phone.</p>
-        <button className="ed-primary" disabled={busy} onClick={create}>
+      <section className="ed-card ed-welcome">
+        <h2>Start his board</h2>
+        <p>
+          Bro Board starts with a ready-made set of buttons (food, bathroom, pain, yes and no, and more). You can
+          change any of them afterwards. You'll get a private link to open on his phone.
+        </p>
+        <button className="ed-primary ed-large" disabled={busy} onClick={create}>
           Create his board
         </button>
-        {status && <p className={`ed-${status.kind}`}>{status.text}</p>}
+        {status && <p className={`ed-status ed-${status.kind}`}>{status.text}</p>}
       </section>
     );
   }
@@ -288,7 +321,7 @@ function Workspace() {
       void loadVersions(boardId);
       void syncVoices(boardId, draft);
     } catch (e) {
-      setStatus({ kind: 'error', text: `Could not save: ${String(e)}` });
+      setStatus({ kind: 'error', text: `Couldn't save. ${friendly(e)}` });
     } finally {
       setBusy(false);
     }
@@ -305,39 +338,55 @@ function Workspace() {
     try {
       const id = await db.moveToNewLink(boardId, savedJson);
       setBoardId(id);
-      setStatus({ kind: 'ok', text: 'New link made. The old link no longer works.' });
+      setStatus({
+        kind: 'ok',
+        text: 'New link made. The old one no longer works. Open the new link on his phone and add it to the Home screen.',
+      });
       void loadVersions(id);
     } catch (e) {
-      setStatus({ kind: 'error', text: `Could not make a new link: ${String(e)}` });
+      setStatus({ kind: 'error', text: `Couldn't make a new link. ${friendly(e)}` });
     } finally {
       setBusy(false);
     }
   };
 
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(linkFor(boardId));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // The link box can still be selected and copied by hand.
+    }
+  };
+
   const setCategories = (categories: Category[]) => setDraft({ ...draft, categories });
-  const homePages = paginate(draft.categories).length;
+  const pages = paginate(draft.categories);
+  const openCategory = (id: string) => {
+    setOpenId(id);
+    window.requestAnimationFrame(() =>
+      document.getElementById(`cat-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  };
+  const addCategory = () => {
+    const id = makeId('new');
+    const used = new Set(draft.categories.map((c) => c.color));
+    const color = COLOR_NAMES.find((c) => !used.has(c)) ?? 'sand';
+    setCategories([...draft.categories, { id, label: 'New button', icon: 'what', color, items: [] }]);
+    openCategory(id);
+  };
+
+  // Which screen each Home button lands on: 6 fit on one, otherwise 5 per screen plus More.
+  let index = 0;
+  const groups = pages.map((page, p) => {
+    const entries = page.flatMap((t) => (t.kind === 'entry' ? [t.entry] : []));
+    const start = index;
+    index += entries.length;
+    return { screen: p + 1, entries, start };
+  });
 
   return (
     <>
-      <section className="ed-card">
-        <h2>His private link</h2>
-        <p>Open this on his phone, then tap Add to Home screen. Share it only with family and caregivers.</p>
-        <div className="ed-link">
-          <input readOnly value={linkFor(boardId)} onFocus={(e) => e.target.select()} aria-label="His private link" />
-          <button onClick={() => void navigator.clipboard?.writeText(linkFor(boardId))}>Copy</button>
-          <a className="ed-button" href={linkFor(boardId)} target="_blank" rel="noreferrer">
-            Open
-          </a>
-        </div>
-        <p className="ed-small">
-          If the link has been shared too widely,{' '}
-          <button className="ed-link-button" disabled={busy || dirty} onClick={newLink}>
-            make a new link
-          </button>
-          {dirty && ' (save your changes first)'}.
-        </p>
-      </section>
-
       <div className="ed-savebar">
         <button className="ed-primary" disabled={!dirty || busy || problems.length > 0} onClick={save}>
           Save changes
@@ -357,8 +406,8 @@ function Workspace() {
       {voiceStatus && <p className={`ed-status ed-${voiceStatus.kind}`}>{voiceStatus.text}</p>}
 
       {problems.length > 0 && (
-        <section className="ed-card ed-problems" role="alert">
-          <h3>Problems to fix before saving</h3>
+        <section className="ed-note ed-problems" role="alert">
+          <h2>Fix before saving</h2>
           <ul>
             {problems.map((p) => (
               <li key={p}>{p}</li>
@@ -367,8 +416,8 @@ function Workspace() {
         </section>
       )}
       {warnings.length > 0 && (
-        <section className="ed-card ed-warnings">
-          <h3>Worth checking</h3>
+        <section className="ed-note ed-warnings">
+          <h2>Worth checking</h2>
           <ul>
             {warnings.map((w) => (
               <li key={w}>{w}</li>
@@ -377,75 +426,200 @@ function Workspace() {
         </section>
       )}
 
-      <section className="ed-card">
-        <h2>Home screen buttons</h2>
-        <p className="ed-small">
-          {draft.categories.length} buttons.{' '}
-          {homePages === 1
-            ? 'They all fit on one screen.'
-            : `His phone shows 5 at a time plus a More button: ${homePages} screens.`}{' '}
-          Labels can be at most 3 words.
-        </p>
-        {draft.categories.map((cat, i) => (
-          <CategoryEditor
-            key={cat.id}
-            category={cat}
-            first={i === 0}
-            last={i === draft.categories.length - 1}
-            onChange={(c) => setCategories(draft.categories.map((x, j) => (j === i ? c : x)))}
-            onMove={(by) => setCategories(move(draft.categories, i, by))}
-            onRemove={() => {
-              if (window.confirm(`Remove "${cat.label}" from the Home screen?`)) {
-                setCategories(draft.categories.filter((_, j) => j !== i));
-              }
-            }}
+      <div className="ed-layout">
+        <aside className="ed-preview-col" aria-label="Preview of his phone">
+          <PhonePreview board={draft} openId={openId} onPick={openCategory} />
+        </aside>
+
+        <div className="ed-main">
+          <section className="ed-card">
+            <h2>His Home screen</h2>
+            <p className="ed-hint">
+              Up to 6 buttons fit on a screen. With more, his phone shows 5 at a time and a More button. Labels can be
+              at most 3 words.
+            </p>
+            {groups.map((group) => (
+              <div key={group.screen} className="ed-screen-group">
+                {groups.length > 1 && <h3 className="ed-screen-heading">Screen {group.screen}</h3>}
+                {group.entries.map((cat, j) => {
+                  const i = group.start + j;
+                  return (
+                    <CategoryEditor
+                      key={cat.id}
+                      category={cat}
+                      open={openId === cat.id}
+                      onToggle={() => setOpenId(openId === cat.id ? null : cat.id)}
+                      first={i === 0}
+                      last={i === draft.categories.length - 1}
+                      onChange={(c) => setCategories(draft.categories.map((x, k) => (k === i ? c : x)))}
+                      onMove={(by) => setCategories(move(draft.categories, i, by))}
+                      onRemove={() => {
+                        if (window.confirm(`Remove "${cat.label}" from his Home screen?`)) {
+                          setCategories(draft.categories.filter((_, k) => k !== i));
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+            <button className="ed-add" onClick={addCategory}>
+              <PlusIcon /> Add a Home screen button
+            </button>
+          </section>
+
+          <SettingsEditor board={draft} onChange={setDraft} />
+
+          <section className="ed-card">
+            <h2>Open it on his phone</h2>
+            <ol className="ed-steps">
+              <li>Send this link to his phone, or open it there.</li>
+              <li>In Chrome, tap the ⋮ menu, then Add to Home screen.</li>
+              <li>From then on he opens Bro Board from its Home screen icon.</li>
+            </ol>
+            <div className="ed-link">
+              <input readOnly value={linkFor(boardId)} onFocus={(e) => e.target.select()} aria-label="His private link" />
+              <button onClick={copyLink}>{copied ? 'Copied' : 'Copy link'}</button>
+              <a className="ed-button" href={linkFor(boardId)} target="_blank" rel="noreferrer">
+                Open
+              </a>
+            </div>
+          </section>
+
+          <section className="ed-card">
+            <h2>Earlier versions</h2>
+            <p className="ed-hint">
+              The last {db.HISTORY_LIMIT} saves. Loading one puts it in the editor; press Save to send it to his phone.
+            </p>
+            {versions === null ? (
+              <p className="ed-quiet">Loading…</p>
+            ) : (
+              <ul className="ed-versions">
+                {versions.map((v, i) => (
+                  <li key={v.id}>
+                    <span>
+                      {formatTime(v.savedAt)}
+                      {i === 0 && <em> · on his phone now</em>}
+                    </span>
+                    {i > 0 && (
+                      <button
+                        onClick={() => {
+                          const old = parseBoard(v.json);
+                          if (old) setDraft(old);
+                        }}
+                      >
+                        Load this version
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="ed-card ed-privacy">
+            <h2>Privacy</h2>
+            <p>
+              Anyone with his link can see his board, but only approved family can change it. If the link has been
+              shared too widely, make a new one. The old link stops working straight away.
+            </p>
+            <button className="ed-danger-button" disabled={busy || dirty} onClick={newLink}>
+              Make a new link
+            </button>
+            {dirty && <p className="ed-hint">Save or undo your changes first.</p>}
+          </section>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** A small copy of his phone, built from the same layout rules, so family can see what he will see. */
+function PhonePreview({
+  board,
+  openId,
+  onPick,
+}: {
+  board: Board;
+  openId: string | null;
+  onPick: (id: string) => void;
+}) {
+  const open = board.categories.find((c) => c.id === openId && (c.items?.length ?? 0) > 0);
+  const homePages = paginate(board.categories);
+  return (
+    <div className="ed-preview">
+      <h2>His phone</h2>
+      <p className="ed-hint">Tap a button to edit it.</p>
+      {homePages.map((page, p) => (
+        <MiniScreen
+          key={`home-${p}`}
+          title={`Home${homePages.length > 1 ? ` · screen ${p + 1}` : ''}`}
+          tiles={page.map((t) =>
+            t.kind === 'more'
+              ? { key: 'more', more: true, label: p === homePages.length - 1 ? 'Back to start' : 'More' }
+              : {
+                  key: t.entry.id,
+                  label: t.entry.label,
+                  icon: t.entry.icon,
+                  style: swatchStyle(colorFor(t.entry)),
+                  current: t.entry.id === openId,
+                  onPick: () => onPick(t.entry.id),
+                },
+          )}
+        />
+      ))}
+      {open &&
+        paginate(open.items ?? []).map((page, p, all) => (
+          <MiniScreen
+            key={`open-${p}`}
+            title={`${open.label}${all.length > 1 ? ` · screen ${p + 1}` : ''}`}
+            tiles={page.map((t) =>
+              t.kind === 'more'
+                ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
+                : { key: t.entry.id, label: t.entry.label, icon: t.entry.icon, style: swatchStyle(colorFor(open)) },
+            )}
           />
         ))}
-        <button
-          onClick={() =>
-            setCategories([
-              ...draft.categories,
-              { id: makeId('new'), label: 'New button', icon: 'what', items: [] },
-            ])
-          }
-        >
-          + Add a Home screen button
-        </button>
-      </section>
+    </div>
+  );
+}
 
-      <SettingsEditor board={draft} onChange={setDraft} />
+interface MiniTile {
+  key: string;
+  label: string;
+  icon?: string;
+  more?: boolean;
+  style?: Record<string, string>;
+  current?: boolean;
+  onPick?: () => void;
+}
 
-      <section className="ed-card">
-        <h2>Previous versions</h2>
-        <p className="ed-small">
-          The last {db.HISTORY_LIMIT} saves. Loading one puts it in the editor; press Save to send it to his phone.
-        </p>
-        {versions === null ? (
-          <p>Loading…</p>
-        ) : (
-          <ul className="ed-versions">
-            {versions.map((v, i) => (
-              <li key={v.id}>
-                <span>
-                  {formatTime(v.savedAt)}
-                  {i === 0 && ' (current)'}
-                </span>
-                {i > 0 && (
-                  <button
-                    onClick={() => {
-                      const old = parseBoard(v.json);
-                      if (old) setDraft(old);
-                    }}
-                  >
-                    Load this version
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+function MiniScreen({ title, tiles }: { title: string; tiles: MiniTile[] }) {
+  return (
+    <figure className="ed-mini">
+      <figcaption>{title}</figcaption>
+      <div className="ed-mini-grid">
+        {tiles.map((t) =>
+          t.onPick ? (
+            <button
+              key={t.key}
+              className={t.current ? 'ed-mini-tile is-current' : 'ed-mini-tile'}
+              style={t.style}
+              onClick={t.onPick}
+              aria-label={`Edit ${t.label}`}
+            >
+              {t.icon && <img src={iconUrl(t.icon)} alt="" />}
+              <span>{t.label}</span>
+            </button>
+          ) : (
+            <div key={t.key} className={t.more ? 'ed-mini-tile ed-mini-more' : 'ed-mini-tile'} style={t.style}>
+              {t.icon && <img src={iconUrl(t.icon)} alt="" />}
+              <span>{t.label}</span>
+            </div>
+          ),
         )}
-      </section>
-    </>
+      </div>
+    </figure>
   );
 }
 
@@ -468,7 +642,7 @@ function PhraseInput({ value, onChange }: { value: string; onChange: (v: string)
   return (
     <label className="ed-field ed-wide">
       <span>What the phone says</span>
-      <input className={bad ? 'ed-bad' : ''} value={value} onChange={(e) => onChange(e.target.value)} />
+      <textarea className={bad ? 'ed-bad' : ''} rows={2} value={value} onChange={(e) => onChange(e.target.value)} />
       <small className={bad ? 'ed-bad-text' : ''}>
         {!value.trim() ? 'Needs a phrase' : `${value.length} of ${MAX_PHRASE_LENGTH} letters`}
       </small>
@@ -476,7 +650,7 @@ function PhraseInput({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-function MoveButtons({
+function RowButtons({
   first,
   last,
   onMove,
@@ -491,21 +665,38 @@ function MoveButtons({
 }) {
   return (
     <div className="ed-row-buttons">
-      <button disabled={first} onClick={() => onMove(-1)} aria-label={`Move ${what} up`} title="Move up">
-        ↑
+      <button disabled={first} onClick={() => onMove(-1)} aria-label={`Move ${what} up`}>
+        <ArrowIcon up /> Up
       </button>
-      <button disabled={last} onClick={() => onMove(1)} aria-label={`Move ${what} down`} title="Move down">
-        ↓
+      <button disabled={last} onClick={() => onMove(1)} aria-label={`Move ${what} down`}>
+        <ArrowIcon /> Down
       </button>
-      <button className="ed-danger" onClick={onRemove} aria-label={`Remove ${what}`} title="Remove">
-        ✕
+      <button className="ed-danger" onClick={onRemove} aria-label={`Remove ${what}`}>
+        <TrashIcon /> Remove
       </button>
     </div>
   );
 }
 
+function ColorPicker({ id, value, onChange }: { id: string; value: string; onChange: (c: ColorName) => void }) {
+  return (
+    <fieldset className="ed-colors">
+      <legend>Colour</legend>
+      {COLOR_NAMES.map((name) => (
+        <label key={name} className="ed-swatch" title={PALETTE[name].name}>
+          <input type="radio" name={`color-${id}`} checked={value === name} onChange={() => onChange(name)} />
+          <span style={{ background: PALETTE[name].tint, borderColor: PALETTE[name].deep }} aria-hidden="true" />
+          <em className="visually-hidden">{PALETTE[name].name}</em>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 function CategoryEditor({
   category,
+  open,
+  onToggle,
   first,
   last,
   onChange,
@@ -513,93 +704,125 @@ function CategoryEditor({
   onRemove,
 }: {
   category: Category;
+  open: boolean;
+  onToggle: () => void;
   first: boolean;
   last: boolean;
   onChange: (c: Category) => void;
   onMove: (by: number) => void;
   onRemove: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const isList = category.items !== undefined && (category.items.length > 0 || !category.phrase);
   const items = category.items ?? [];
+  const swatch = colorFor(category);
+  const colorName = COLOR_NAMES.find((n) => PALETTE[n] === swatch) ?? 'sand';
+  const bad = validateBoard({ version: 1, settings: { repeatDelayMs: 600, holdMs: 0, speakLabels: false, speechRate: 1 }, categories: [category] }).length > 0;
 
   const setKind = (list: boolean) => {
+    const base = { id: category.id, label: category.label, icon: category.icon, color: category.color };
     if (list) {
-      onChange({ id: category.id, label: category.label, icon: category.icon, items });
+      onChange({ ...base, items });
     } else {
-      if (items.length > 0 && !window.confirm(`This removes the ${items.length} items inside "${category.label}".`)) return;
-      onChange({ id: category.id, label: category.label, icon: category.icon, phrase: category.phrase ?? '' });
+      if (items.length > 0 && !window.confirm(`This removes the ${items.length} needs inside "${category.label}".`)) return;
+      onChange({ ...base, phrase: category.phrase ?? '' });
     }
   };
   const setItems = (next: Item[]) => onChange({ ...category, items: next });
 
   return (
-    <div className="ed-category">
-      <div className="ed-row">
-        <IconPicker icon={category.icon} onPick={(icon) => onChange({ ...category, icon })} />
-        <LabelInput name="Button label" value={category.label} onChange={(label) => onChange({ ...category, label })} />
-        <MoveButtons first={first} last={last} onMove={onMove} onRemove={onRemove} what={category.label} />
-      </div>
-      <fieldset className="ed-kind">
-        <legend>When he taps it</legend>
-        <label>
-          <input type="radio" checked={isList} onChange={() => setKind(true)} /> Opens a list of needs
-        </label>
-        <label>
-          <input type="radio" checked={!isList} onChange={() => setKind(false)} /> Says one message
-        </label>
-      </fieldset>
-      {!isList && (
-        <div className="ed-row">
-          <PhraseInput value={category.phrase ?? ''} onChange={(phrase) => onChange({ ...category, phrase })} />
-          <label className="ed-check">
-            <input
-              type="checkbox"
-              checked={!!category.speakOnOpen}
-              onChange={(e) => onChange({ ...category, speakOnOpen: e.target.checked || undefined })}
-            />{' '}
-            Speak straight away with one tap (like Yes and No)
-          </label>
-        </div>
-      )}
-      {isList && (
-        <div className="ed-items">
-          <button className="ed-link-button" onClick={() => setOpen(!open)} aria-expanded={open}>
-            {open ? '▾ Hide' : '▸ Show'} the {items.length} {items.length === 1 ? 'need' : 'needs'} inside
-            {items.length > 6 && ' (needs a More page)'}
-          </button>
-          {open && (
-            <>
+    <div className={open ? 'ed-category is-open' : 'ed-category'} id={`cat-${category.id}`}>
+      <button className="ed-summary" onClick={onToggle} aria-expanded={open}>
+        <span className="ed-summary-tile" style={swatchStyle(swatch)}>
+          <img src={iconUrl(category.icon)} alt="" />
+        </span>
+        <span className="ed-summary-text">
+          <strong>{category.label || 'Untitled'}</strong>
+          <small>
+            {isList
+              ? `${items.length} ${items.length === 1 ? 'need' : 'needs'} inside`
+              : category.speakOnOpen
+                ? 'Speaks with one tap'
+                : 'Says one message'}
+            {bad && <span className="ed-bad-text"> · needs fixing</span>}
+          </small>
+        </span>
+        <span className="ed-summary-action">{open ? 'Close' : 'Edit'}</span>
+      </button>
+
+      {open && (
+        <div className="ed-category-body">
+          <div className="ed-row">
+            <IconPicker icon={category.icon} onPick={(icon) => onChange({ ...category, icon })} />
+            <LabelInput name="Button label" value={category.label} onChange={(label) => onChange({ ...category, label })} />
+          </div>
+          <ColorPicker id={category.id} value={colorName} onChange={(color) => onChange({ ...category, color })} />
+          <fieldset className="ed-kind">
+            <legend>When he taps it</legend>
+            <label>
+              <input type="radio" checked={isList} onChange={() => setKind(true)} /> It opens a list of needs
+            </label>
+            <label>
+              <input type="radio" checked={!isList} onChange={() => setKind(false)} /> It says one message
+            </label>
+          </fieldset>
+          {!isList && (
+            <div className="ed-row">
+              <PhraseInput value={category.phrase ?? ''} onChange={(phrase) => onChange({ ...category, phrase })} />
+              <label className="ed-check">
+                <input
+                  type="checkbox"
+                  checked={!!category.speakOnOpen}
+                  onChange={(e) => onChange({ ...category, speakOnOpen: e.target.checked || undefined })}
+                />
+                Speak straight away with one tap, and stay on Home (like Yes and No)
+              </label>
+            </div>
+          )}
+          {isList && (
+            <div className="ed-items">
+              <h4>
+                Needs inside "{category.label}"{items.length > 6 && <small> · needs a More page</small>}
+              </h4>
               {items.map((item, i) => (
-                <div className="ed-row ed-item" key={item.id}>
-                  <IconPicker icon={item.icon} onPick={(icon) => setItems(items.map((x, j) => (j === i ? { ...x, icon } : x)))} />
-                  <LabelInput
-                    name="Label"
-                    value={item.label}
-                    onChange={(label) => setItems(items.map((x, j) => (j === i ? { ...x, label } : x)))}
+                <div className="ed-item" key={item.id}>
+                  <IconPicker
+                    icon={item.icon}
+                    onPick={(icon) => setItems(items.map((x, j) => (j === i ? { ...x, icon } : x)))}
                   />
-                  <PhraseInput
-                    value={item.phrase}
-                    onChange={(phrase) => setItems(items.map((x, j) => (j === i ? { ...x, phrase } : x)))}
-                  />
-                  <MoveButtons
+                  <div className="ed-item-fields">
+                    <LabelInput
+                      name="Label"
+                      value={item.label}
+                      onChange={(label) => setItems(items.map((x, j) => (j === i ? { ...x, label } : x)))}
+                    />
+                    <PhraseInput
+                      value={item.phrase}
+                      onChange={(phrase) => setItems(items.map((x, j) => (j === i ? { ...x, phrase } : x)))}
+                    />
+                  </div>
+                  <RowButtons
                     first={i === 0}
                     last={i === items.length - 1}
                     onMove={(by) => setItems(move(items, i, by))}
-                    onRemove={() => setItems(items.filter((_, j) => j !== i))}
+                    onRemove={() => {
+                      if (window.confirm(`Remove "${item.label}"?`)) setItems(items.filter((_, j) => j !== i));
+                    }}
                     what={item.label}
                   />
                 </div>
               ))}
               <button
-                onClick={() =>
-                  setItems([...items, { id: makeId('new'), label: 'New need', icon: 'what', phrase: '' }])
-                }
+                className="ed-add"
+                onClick={() => setItems([...items, { id: makeId('new'), label: 'New need', icon: 'what', phrase: '' }])}
               >
-                + Add a need to "{category.label}"
+                <PlusIcon /> Add a need
               </button>
-            </>
+            </div>
           )}
+          <div className="ed-category-foot">
+            <span className="ed-hint">Move or remove this Home button:</span>
+            <RowButtons first={first} last={last} onMove={onMove} onRemove={onRemove} what={category.label} />
+          </div>
         </div>
       )}
     </div>
@@ -616,9 +839,9 @@ function IconPicker({ icon, onPick }: { icon: string; onPick: (icon: string) => 
   }, [open]);
   return (
     <>
-      <button className="ed-icon-button" onClick={() => setOpen(true)} title="Change picture" aria-label="Change picture">
+      <button className="ed-icon-button" onClick={() => setOpen(true)} aria-label="Change picture">
         <img src={iconUrl(icon)} alt="" />
-        <small>Change</small>
+        <small>Change picture</small>
       </button>
       {open && (
         <div className="ed-modal" role="dialog" aria-label="Choose a picture" onClick={() => setOpen(false)}>
@@ -649,55 +872,118 @@ function IconPicker({ icon, onPick }: { icon: string; onPick: (icon: string) => 
   );
 }
 
+function Choice({
+  label,
+  hint,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  options: [number, string][];
+  onChange: (v: number) => void;
+}) {
+  // Keep a value set some other way, so choosing nothing never changes it.
+  const all = options.some(([v]) => v === value) ? options : [...options, [value, `${value} (current)`] as [number, string]];
+  return (
+    <label className="ed-field">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        {all.map(([v, text]) => (
+          <option key={v} value={v}>
+            {text}
+          </option>
+        ))}
+      </select>
+      <small>{hint}</small>
+    </label>
+  );
+}
+
 function SettingsEditor({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
   const s = board.settings;
   const set = (patch: Partial<Board['settings']>) => onChange({ ...board, settings: { ...s, ...patch } });
-  const seconds = (ms: number) => Math.round(ms / 100) / 10;
   return (
     <section className="ed-card">
-      <h2>Touch and sound settings</h2>
+      <h2>Touch and sound</h2>
       <div className="ed-settings">
-        <label className="ed-field">
-          <span>Ignore repeat taps for (seconds)</span>
-          <input
-            type="number"
-            min={0}
-            max={5}
-            step={0.1}
-            value={seconds(s.repeatDelayMs)}
-            onChange={(e) => set({ repeatDelayMs: Math.round(Number(e.target.value) * 1000) })}
-          />
-          <small>After a press, more taps are ignored for this long. Start: 0.6.</small>
-        </label>
-        <label className="ed-field">
-          <span>Hold before a press counts (seconds)</span>
-          <input
-            type="number"
-            min={0}
-            max={3}
-            step={0.1}
-            value={seconds(s.holdMs)}
-            onChange={(e) => set({ holdMs: Math.round(Number(e.target.value) * 1000) })}
-          />
-          <small>0 turns this off. Try 0.3 if brushes count as presses.</small>
-        </label>
-        <label className="ed-field">
-          <span>Phone voice speed</span>
-          <input
-            type="number"
-            min={0.3}
-            max={2}
-            step={0.1}
-            value={s.speechRate}
-            onChange={(e) => set({ speechRate: Number(e.target.value) })}
-          />
-          <small>Only used when a phrase has no recording yet. 1 is normal.</small>
-        </label>
-        <label className="ed-check">
-          <input type="checkbox" checked={s.speakLabels} onChange={(e) => set({ speakLabels: e.target.checked })} /> Say
-          each button's name aloud when pressed
-        </label>
+        <Choice
+          label="After a press, ignore taps for"
+          hint="Stops one shaky press counting twice."
+          value={s.repeatDelayMs}
+          options={[
+            [300, 'A third of a second'],
+            [600, 'Just over half a second (start here)'],
+            [1000, '1 second'],
+            [1500, '1½ seconds'],
+            [2000, '2 seconds'],
+          ]}
+          onChange={(repeatDelayMs) => set({ repeatDelayMs })}
+        />
+        <Choice
+          label="Finger must rest on a button for"
+          hint="Try a short hold if brushes count as presses."
+          value={s.holdMs}
+          options={[
+            [0, 'No hold needed (start here)'],
+            [200, 'A fifth of a second'],
+            [400, 'Under half a second'],
+            [600, 'Just over half a second'],
+            [1000, '1 second'],
+          ]}
+          onChange={(holdMs) => set({ holdMs })}
+        />
+        <Choice
+          label="Phone voice speed"
+          hint="Only used for a phrase that has no recording yet."
+          value={s.speechRate}
+          options={[
+            [0.7, 'Slow'],
+            [0.9, 'A little slow (start here)'],
+            [1, 'Normal'],
+            [1.2, 'A little fast'],
+          ]}
+          onChange={(speechRate) => set({ speechRate })}
+        />
+        <div className="ed-checks">
+          <label className="ed-check">
+            <input type="checkbox" checked={s.vibrate !== false} onChange={(e) => set({ vibrate: e.target.checked })} />
+            A gentle buzz when a press counts
+          </label>
+          <label className="ed-check">
+            <input type="checkbox" checked={s.speakLabels} onChange={(e) => set({ speakLabels: e.target.checked })} />
+            Say each button's name aloud when pressed
+          </label>
+        </div>
       </div>
     </section>
   );
 }
+
+// Drawn icons, matching his board's icon style.
+
+function Svg({ children }: { children: ReactNode }) {
+  return (
+    <svg className="ed-ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+const ArrowIcon = ({ up }: { up?: boolean }) => (
+  <Svg>
+    <path d={up ? 'M12 19V5M5 12l7-7 7 7' : 'M12 5v14M19 12l-7 7-7-7'} />
+  </Svg>
+);
+const TrashIcon = () => (
+  <Svg>
+    <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+  </Svg>
+);
+const PlusIcon = () => (
+  <Svg>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);

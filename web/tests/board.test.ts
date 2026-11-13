@@ -105,12 +105,12 @@ describe('navigation', () => {
 
   it('opens a category, then an item, then the message', () => {
     const state = run({ type: 'openCategory', category: food }, { type: 'openItem', item: food.items![0] });
-    expect(current(state)).toEqual({ name: 'message', phrase: 'I am hungry.', icon: 'hungry' });
+    expect(current(state)).toEqual({ name: 'message', phrase: 'I am hungry.', icon: 'hungry', categoryId: 'food' });
   });
 
   it('goes straight to the message for a category with no items', () => {
     const state = run({ type: 'openCategory', category: yes });
-    expect(current(state)).toEqual({ name: 'message', phrase: 'Yes.', icon: 'yes' });
+    expect(current(state)).toEqual({ name: 'message', phrase: 'Yes.', icon: 'yes', categoryId: 'yes' });
   });
 
   it('More moves to the next home page and wraps around', () => {
@@ -126,7 +126,7 @@ describe('navigation', () => {
 
   it('Back from Show big returns to the message', () => {
     const big = run({ type: 'openCategory', category: yes }, { type: 'showBig' });
-    expect(current(big)).toEqual({ name: 'big', phrase: 'Yes.' });
+    expect(current(big)).toEqual({ name: 'big', phrase: 'Yes.', icon: 'yes', categoryId: 'yes' });
     expect(current(navReducer(board, big, { type: 'back' })).name).toBe('message');
   });
 });

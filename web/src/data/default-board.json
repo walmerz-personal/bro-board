@@ -11,6 +11,7 @@
       "id": "food",
       "label": "Food and drink",
       "icon": "food",
+      "color": "orange",
       "items": [
         { "id": "hungry", "label": "Hungry", "icon": "hungry", "phrase": "I am hungry." },
         { "id": "thirsty", "label": "Thirsty", "icon": "thirsty", "phrase": "I would like a drink." },
@@ -24,6 +25,7 @@
       "id": "bathroom",
       "label": "Bathroom",
       "icon": "toilet",
+      "color": "blue",
       "items": [
         { "id": "pee", "label": "Pee", "icon": "pee", "phrase": "I need to pee." },
         { "id": "poo", "label": "Poo", "icon": "poo", "phrase": "I need to poo." },
@@ -36,6 +38,7 @@
       "id": "pain",
       "label": "Pain",
       "icon": "pain",
+      "color": "rose",
       "items": [
         { "id": "head", "label": "Head", "icon": "head", "phrase": "I have pain in my head." },
         { "id": "mouth", "label": "Mouth or teeth", "icon": "mouth", "phrase": "I have pain in my mouth." },
@@ -51,6 +54,7 @@
       "id": "yes",
       "label": "Yes",
       "icon": "yes",
+      "color": "green",
       "phrase": "Yes.",
       "speakOnOpen": true
     },
@@ -58,6 +62,7 @@
       "id": "no",
       "label": "No",
       "icon": "no",
+      "color": "red",
       "phrase": "No.",
       "speakOnOpen": true
     },
@@ -65,6 +70,7 @@
       "id": "clothes",
       "label": "Clothes",
       "icon": "clothes",
+      "color": "purple",
       "items": [
         { "id": "pants", "label": "Pants", "icon": "trousers", "phrase": "Please help me put on pants." },
         { "id": "shirt", "label": "Shirt", "icon": "shirt", "phrase": "Please help me put on a shirt." },
@@ -77,6 +83,7 @@
       "id": "tv",
       "label": "TV and movies",
       "icon": "tv",
+      "color": "sky",
       "items": [
         { "id": "movie", "label": "Movie", "icon": "movie", "phrase": "Please put on a movie." },
         { "id": "change-it", "label": "Change it", "icon": "change-channel", "phrase": "Please change what is on." },
@@ -89,6 +96,7 @@
       "id": "comfort",
       "label": "Comfort",
       "icon": "comfort",
+      "color": "teal",
       "items": [
         { "id": "hot", "label": "Too hot", "icon": "hot", "phrase": "I am too hot." },
         { "id": "cold", "label": "Too cold", "icon": "cold", "phrase": "I am too cold." },
@@ -102,6 +110,7 @@
       "id": "people",
       "label": "People",
       "icon": "family",
+      "color": "sun",
       "items": [
         { "id": "call", "label": "Call family", "icon": "call", "phrase": "I want to call my family." },
         { "id": "visit", "label": "Visit", "icon": "visit", "phrase": "I would like a visit." },
@@ -109,6 +118,6 @@
         { "id": "talk", "label": "Talk", "icon": "talk", "phrase": "I want to talk with someone." }
       ]
     },
-    { "id": "else", "label": "Something else", "icon": "what", "phrase": "I need something that is not on my board. Please help me work out what." }
+    { "id": "else", "label": "Something else", "icon": "what", "color": "sand", "phrase": "I need something that is not on my board. Please help me work out what." }
   ]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import boardData from '../src/data/default-board.json';
-import { boardPhrases, boardWarnings, parseBoard, validateBoard, type Board } from '../src/board';
+import { boardPhrases, boardWarnings, paginate, parseBoard, validateBoard, type Board } from '../src/board';
 import { boardIdFromHash } from '../src/boardSource';
 import { audioId } from '../src/remote/audioId';
 
@@ -93,5 +93,35 @@ describe('boardPhrases', () => {
     const phrases = boardPhrases(starter);
     expect(new Set(phrases).size).toBe(phrases.length);
     expect(phrases).toContain('Yes.');
+  });
+});
+
+describe('colours', () => {
+  it('keeps a known colour and drops an unknown one', async () => {
+    const { colorFor, PALETTE } = await import('../src/colors');
+    const board = parseBoard(json)!;
+    expect(board.categories[0].color).toBe('orange');
+    const odd = JSON.parse(json);
+    odd.categories[0].color = 'neon';
+    const parsed = parseBoard(JSON.stringify(odd))!;
+    expect(parsed).not.toBeNull();
+    expect(parsed.categories[0].color).toBeUndefined();
+    // A category without a colour still gets the same one every time.
+    expect(colorFor({ id: 'food' })).toBe(colorFor({ id: 'food' }));
+    expect(Object.values(PALETTE)).toContain(colorFor({ id: 'anything' }));
+  });
+
+  it('gives every starter category a colour, different from its neighbours on the same screen', () => {
+    const pages = paginate(starter.categories);
+    for (const page of pages) {
+      const colors = page.flatMap((t) => (t.kind === 'entry' ? [t.entry.color] : []));
+      expect(colors.every(Boolean)).toBe(true);
+      expect(new Set(colors).size).toBe(colors.length);
+    }
+  });
+
+  it('accepts the optional buzz setting and rejects a wrong type', () => {
+    expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"vibrate":false'))?.settings.vibrate).toBe(false);
+    expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"vibrate":"no"'))).toBeNull();
   });
 });
