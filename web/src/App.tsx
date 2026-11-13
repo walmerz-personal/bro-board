@@ -8,6 +8,7 @@ import { PressButton, PressContext } from './PressButton';
 import { FitText } from './FitText';
 import { canSpeak, speak, stopSpeaking } from './speech';
 import { smsLink } from './texting';
+import { setSafeToReload } from './update';
 
 const starterBoard = boardData as Board;
 
@@ -39,6 +40,15 @@ function iconUrl(icon: string): string {
 }
 
 export function App() {
+  // The page only reads the address when it opens, so if the part after the
+  // # changes (for example someone adds #edit, or opens a new private link in
+  // the same tab), start again so the right screen and board show.
+  useEffect(() => {
+    const onHashChange = () => window.location.reload();
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   if (window.location.hash.startsWith('#edit')) {
     return (
       <Suspense fallback={<p className="editor-loading">Loading the editor…</p>}>
@@ -118,6 +128,11 @@ function BoardApp() {
   useEffect(() => {
     if (atStart && latest !== board) setBoard(latest);
   }, [atStart, latest, board]);
+
+  // A new version of the app may reload the page, but only on the first Home screen.
+  useEffect(() => {
+    setSafeToReload(atStart);
+  }, [atStart]);
 
   const findCategory = (id: string) => board.categories.find((c) => c.id === id);
   const category = screen.name === 'items' ? findCategory(screen.categoryId) : undefined;

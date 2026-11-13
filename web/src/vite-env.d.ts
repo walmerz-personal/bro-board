@@ -1,3 +1,4 @@
+/// <reference types="vite-plugin-pwa/vanillajs" />
 /// <reference types="vite/client" />
 
 /** Names of the pictures in public/symbols, for the editor's picture chooser. */

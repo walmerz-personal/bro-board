@@ -22,6 +22,7 @@ import { VOICE } from '../remote/config';
 import { recordingFor } from '../speech';
 import { formatPhone, normalizePhone, textBody } from '../texting';
 import * as db from './db';
+import { setSafeToReload } from '../update';
 import './editor.css';
 
 const starterBoard = starter as Board;
@@ -271,6 +272,12 @@ function Workspace() {
       }
     })();
   }, [loadVersions, syncVoices]);
+
+  // A new version of the app may reload the editor, but never over unsaved changes.
+  useEffect(() => {
+    setSafeToReload(!dirty);
+    return () => setSafeToReload(false);
+  }, [dirty]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
