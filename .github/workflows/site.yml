@@ -25,8 +25,14 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npm test
+      # The security rules, checked against a local copy of Firebase.
+      - run: npm run test:rules
       - run: npm run build
       - if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3

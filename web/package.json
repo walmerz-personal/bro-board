@@ -7,17 +7,25 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-bro-board --config ../firebase/firebase.json \"vitest run --config vitest.rules.config.ts\"",
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-bro-board --config ../firebase/firebase.json",
+    "dev:local": "vite --mode emulator"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "firebase": "^13.3.0",
+    "kokoro-js": "^1.2.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "firebase-tools": "^15.36.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vite-plugin-pwa": "^2.0.0",

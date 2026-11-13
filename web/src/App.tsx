@@ -1,24 +1,43 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import boardData from './data/default-board.json';
+import { useBoard } from './boardSource';
 import { paginate, type Board, type Category, type Item, type Tile } from './board';
 import { current, initialNav, navReducer, type NavAction, type NavState } from './nav';
 import { PressButton, PressContext } from './PressButton';
 import { FitText } from './FitText';
 import { canSpeak, speak, stopSpeaking } from './speech';
 
-const board = boardData as Board;
+const starterBoard = boardData as Board;
+
+// The editor is only loaded on family's devices, never on his phone.
+const Editor = lazy(() => import('./editor/Editor'));
 
 function iconUrl(icon: string): string {
   return `${import.meta.env.BASE_URL}symbols/${icon}.svg`;
 }
 
 export function App() {
+  if (window.location.hash.startsWith('#edit')) {
+    return (
+      <Suspense fallback={<p className="editor-loading">Loading the editor…</p>}>
+        <Editor />
+      </Suspense>
+    );
+  }
+  return <BoardApp />;
+}
+
+function BoardApp() {
+  const latest = useBoard(starterBoard);
+  // A changed board is only swapped in on the first Home page, so buttons
+  // never move under his finger part-way through choosing something.
+  const [board, setBoard] = useState(latest);
   const [nav, dispatch] = useReducer(
     (state: NavState, action: NavAction) => navReducer(board, state, action),
     initialNav,
   );
   const lastAcceptedAt = useRef<number | null>(null);
-  const press = useMemo(() => ({ settings: board.settings, lastAcceptedAt }), []);
+  const press = useMemo(() => ({ settings: board.settings, lastAcceptedAt }), [board]);
   const screen = current(nav);
   const [speaking, setSpeaking] = useState(false);
 
@@ -53,6 +72,9 @@ export function App() {
   }, []);
 
   const atStart = nav.length === 1 && screen.name === 'home' && screen.page === 0;
+  useEffect(() => {
+    if (atStart && latest !== board) setBoard(latest);
+  }, [atStart, latest, board]);
   const category =
     screen.name === 'items' ? board.categories.find((c) => c.id === screen.categoryId) : undefined;
   const title = screen.name === 'home' ? 'I need…' : screen.name === 'items' ? (category?.label ?? '') : '';
