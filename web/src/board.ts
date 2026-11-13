@@ -1,6 +1,7 @@
 // The shape of the board data, plus small helpers that are easy to test.
 
 import { isColorName } from './colors';
+import { isStoredPhone } from './texting';
 
 export interface Item {
   id: string;
@@ -22,6 +23,16 @@ export interface Category {
   items?: Item[];
 }
 
+/** Someone he can text. The phone number is stored as +15551234567. */
+export interface Recipient {
+  id: string;
+  name: string;
+  phone: string;
+  icon: string;
+}
+
+export const MAX_RECIPIENTS = 20;
+
 export interface Settings {
   /** After a press, ignore further presses for this long (milliseconds). */
   repeatDelayMs: number;
@@ -39,6 +50,8 @@ export interface Board {
   version: number;
   settings: Settings;
   categories: Category[];
+  /** People he can text. With none, the Text button does not show. */
+  recipients?: Recipient[];
 }
 
 /** One button on a grid screen: either a real choice or the "More" button. */
@@ -123,6 +136,16 @@ export function validateBoard(board: Board): string[] {
       checkPhrase(itemName, item.phrase);
     }
   }
+  const people = board.recipients ?? [];
+  if (people.length > MAX_RECIPIENTS) problems.push(`people to text: at most ${MAX_RECIPIENTS}`);
+  const personIds = new Set<string>();
+  for (const person of people) {
+    const who = `Person ${name(person.name, person.id)}`;
+    if (personIds.has(person.id)) problems.push(`person "${person.id}": id used twice`);
+    personIds.add(person.id);
+    checkLabel(who, person.name);
+    if (!isStoredPhone(person.phone)) problems.push(`${who}: phone number is not complete`);
+  }
   return problems;
 }
 
@@ -174,6 +197,17 @@ export function parseBoard(json: string): Board | null {
     categories.push(category);
   }
 
+  let recipients: Recipient[] | undefined;
+  if (b.recipients !== undefined) {
+    if (!Array.isArray(b.recipients)) return null;
+    recipients = [];
+    for (const raw of b.recipients as unknown[]) {
+      const r = raw as Record<string, unknown>;
+      if (!r || !isText(r.id) || !isText(r.name) || !isText(r.phone) || !isText(r.icon)) return null;
+      recipients.push({ id: r.id, name: r.name, phone: r.phone, icon: r.icon });
+    }
+  }
+
   const board: Board = {
     version: b.version,
     settings: {
@@ -184,6 +218,7 @@ export function parseBoard(json: string): Board | null {
       ...(s.vibrate !== undefined ? { vibrate: s.vibrate } : {}),
     },
     categories,
+    ...(recipients ? { recipients } : {}),
   };
   return validateBoard(board).length === 0 ? board : null;
 }

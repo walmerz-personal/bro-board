@@ -131,6 +131,44 @@ describe('navigation', () => {
   });
 });
 
+describe('texting navigation', () => {
+  const people = Array.from({ length: 7 }, (_, i) => ({
+    id: `p${i}`,
+    name: `Person ${i}`,
+    phone: `+1555010000${i}`,
+    icon: 'family',
+  }));
+  const withPeople: Board = { ...board, recipients: people };
+  const run = (b: Board, ...actions: NavAction[]) => actions.reduce((s, a) => navReducer(b, s, a), initialNav);
+  const food = board.categories.find((c) => c.id === 'food')!;
+  const toMessage: NavAction[] = [{ type: 'openCategory', category: food }, { type: 'openItem', item: food.items![0] }];
+
+  it('Text opens the person picker with the phrase', () => {
+    expect(current(run(withPeople, ...toMessage, { type: 'text' }))).toEqual({
+      name: 'people',
+      phrase: 'I am hungry.',
+      page: 0,
+    });
+  });
+
+  it('does nothing when nobody has been added', () => {
+    expect(current(run(board, ...toMessage, { type: 'text' })).name).toBe('message');
+  });
+
+  it('picking a person asks to confirm, and No (Back) returns to the picker', () => {
+    const confirm = run(withPeople, ...toMessage, { type: 'text' }, { type: 'pickPerson', person: people[2] });
+    expect(current(confirm)).toEqual({ name: 'confirm', phrase: 'I am hungry.', recipientId: 'p2' });
+    expect(current(navReducer(withPeople, confirm, { type: 'back' })).name).toBe('people');
+  });
+
+  it('More pages through people and wraps around', () => {
+    const picker = run(withPeople, ...toMessage, { type: 'text' });
+    const next = navReducer(withPeople, picker, { type: 'more' });
+    expect(current(next)).toMatchObject({ name: 'people', page: 1 });
+    expect(current(navReducer(withPeople, next, { type: 'more' }))).toMatchObject({ name: 'people', page: 0 });
+  });
+});
+
 describe('pickVoice', () => {
   const voice = (name: string, lang = 'en-US', isDefault = false): VoiceInfo => ({
     name,

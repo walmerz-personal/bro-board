@@ -1,13 +1,15 @@
 // Which screen is showing, and how each button changes it.
 
-import type { Board, Category, Item } from './board';
+import type { Board, Category, Item, Recipient } from './board';
 import { paginate } from './board';
 
 export type Screen =
   | { name: 'home'; page: number }
   | { name: 'items'; categoryId: string; page: number }
   | { name: 'message'; phrase: string; icon: string; categoryId: string }
-  | { name: 'big'; phrase: string; icon: string; categoryId: string };
+  | { name: 'big'; phrase: string; icon: string; categoryId: string }
+  | { name: 'people'; phrase: string; page: number }
+  | { name: 'confirm'; phrase: string; recipientId: string };
 
 /** A stack of screens. The last one is showing. Back removes it. */
 export type NavState = Screen[];
@@ -17,6 +19,8 @@ export type NavAction =
   | { type: 'openItem'; item: Item }
   | { type: 'more' }
   | { type: 'showBig' }
+  | { type: 'text' }
+  | { type: 'pickPerson'; person: Recipient }
   | { type: 'back' }
   | { type: 'home' };
 
@@ -54,11 +58,23 @@ export function navReducer(board: Board, state: NavState, action: NavAction): Na
         const pages = paginate(items).length;
         return [...state.slice(0, -1), { ...screen, page: (screen.page + 1) % pages }];
       }
+      if (screen.name === 'people') {
+        const pages = paginate(board.recipients ?? []).length;
+        return [...state.slice(0, -1), { ...screen, page: (screen.page + 1) % pages }];
+      }
       return state;
     }
     case 'showBig':
       return screen.name === 'message'
         ? [...state, { name: 'big', phrase: screen.phrase, icon: screen.icon, categoryId: screen.categoryId }]
+        : state;
+    case 'text':
+      return screen.name === 'message' && (board.recipients?.length ?? 0) > 0
+        ? [...state, { name: 'people', phrase: screen.phrase, page: 0 }]
+        : state;
+    case 'pickPerson':
+      return screen.name === 'people'
+        ? [...state, { name: 'confirm', phrase: screen.phrase, recipientId: action.person.id }]
         : state;
     case 'back':
       if (state.length > 1) return state.slice(0, -1);
