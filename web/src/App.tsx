@@ -20,6 +20,13 @@ export function App() {
   const lastAcceptedAt = useRef<number | null>(null);
   const press = useMemo(() => ({ settings: board.settings, lastAcceptedAt }), []);
   const screen = current(nav);
+  const [speaking, setSpeaking] = useState(false);
+
+  // Runs inside the tap itself, which phones require before they play sound.
+  const say = (phrase: string) => {
+    setSpeaking(true);
+    speak(phrase, board.settings.speechRate, () => setSpeaking(false));
+  };
 
   const sayLabel = (label: string) => {
     if (board.settings.speakLabels) speak(label, board.settings.speechRate);
@@ -28,6 +35,7 @@ export function App() {
   // Leaving a screen stops anything still being spoken.
   const go = (action: NavAction) => {
     stopSpeaking();
+    setSpeaking(false);
     // Keep one spare step in the browser's history, so a stray swipe-back
     // on the phone goes back inside the board and does not close it.
     if (!window.history.state?.guard) window.history.pushState({ guard: true }, '');
@@ -37,6 +45,7 @@ export function App() {
   useEffect(() => {
     const onSystemBack = () => {
       stopSpeaking();
+      setSpeaking(false);
       dispatch({ type: 'back' });
     };
     window.addEventListener('popstate', onSystemBack);
@@ -69,8 +78,9 @@ export function App() {
           <Grid
             tiles={paginate(board.categories)[screen.page]}
             onPick={(c: Category) => {
-              sayLabel(c.label);
               go({ type: 'openCategory', category: c });
+              if (c.speakOnOpen && c.phrase) say(c.phrase);
+              else sayLabel(c.label);
             }}
             onMore={() => go({ type: 'more' })}
           />
@@ -80,8 +90,8 @@ export function App() {
           <Grid
             tiles={paginate(category.items ?? [])[screen.page]}
             onPick={(item: Item) => {
-              sayLabel(item.label);
               go({ type: 'openItem', item });
+              sayLabel(item.label);
             }}
             onMore={() => go({ type: 'more' })}
           />
@@ -91,6 +101,8 @@ export function App() {
           <MessageScreen
             phrase={screen.phrase}
             icon={screen.icon}
+            speaking={speaking}
+            onSpeak={() => say(screen.phrase)}
             onShowBig={() => go({ type: 'showBig' })}
           />
         )}
@@ -130,14 +142,17 @@ function Grid<T extends { id: string; label: string; icon: string }>({
 function MessageScreen({
   phrase,
   icon,
+  speaking,
+  onSpeak,
   onShowBig,
 }: {
   phrase: string;
   icon: string;
+  speaking: boolean;
+  onSpeak: () => void;
   onShowBig: () => void;
 }) {
-  const [speaking, setSpeaking] = useState(false);
-  const speechAvailable = canSpeak();
+  const speechAvailable = canSpeak(phrase);
 
   return (
     <main className="message">
@@ -148,10 +163,7 @@ function MessageScreen({
       <PressButton
         className={`action action-speak${speaking ? ' is-active' : ''}`}
         disabled={!speechAvailable}
-        onPress={() => {
-          setSpeaking(true);
-          speak(phrase, board.settings.speechRate, () => setSpeaking(false));
-        }}
+        onPress={onSpeak}
       >
         <SpeakIcon />
         <span>{speechAvailable ? (speaking ? 'Speaking…' : 'Speak') : 'No voice on this phone'}</span>
