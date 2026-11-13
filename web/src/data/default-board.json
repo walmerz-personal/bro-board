@@ -67,6 +67,20 @@
       "speakOnOpen": true
     },
     {
+      "id": "feelings",
+      "label": "Feelings",
+      "icon": "happy",
+      "color": "orange",
+      "items": [
+        { "id": "good", "label": "Good", "icon": "happy", "phrase": "I feel good." },
+        { "id": "okay", "label": "Okay", "icon": "okay", "phrase": "I am okay." },
+        { "id": "not-good", "label": "Not good", "icon": "not-good", "phrase": "I don't feel good." },
+        { "id": "sad", "label": "Sad", "icon": "sad", "phrase": "I feel sad." },
+        { "id": "tired", "label": "Tired", "icon": "tired", "phrase": "I am tired." },
+        { "id": "worried", "label": "Worried", "icon": "worried", "phrase": "I feel worried." }
+      ]
+    },
+    {
       "id": "clothes",
       "label": "Clothes",
       "icon": "clothes",

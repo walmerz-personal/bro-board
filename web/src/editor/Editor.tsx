@@ -22,6 +22,9 @@ import { VOICE } from '../remote/config';
 import { recordingFor } from '../speech';
 import { formatPhone, normalizePhone, textBody } from '../texting';
 import * as db from './db';
+import { CropDialog } from './CropDialog';
+import type { Square } from './crop';
+import type { Photo } from './photo';
 import { setSafeToReload } from '../update';
 import { addPhoto, hasPhoto, isPhoto, photoIdOf, photosVersion, pictureSrc, subscribePhotos } from '../photos';
 import './editor.css';
@@ -1025,32 +1028,41 @@ function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) 
 
 type UploadState = 'idle' | 'working' | { error: string };
 
-/** Turn a picked or dropped photo into a person's picture. Shared by the button and drag and drop. */
+/**
+ * Turn a picked or dropped photo into a person's picture: open it, let family
+ * frame the face, then shrink and store it. Shared by the button and drag and drop.
+ */
 function usePhotoUpload(boardId: string, onUploaded: (icon: string) => void) {
   const [state, setState] = useState<UploadState>('idle');
+  const [cropping, setCropping] = useState<Photo | null>(null);
   const upload = async (file: File | undefined) => {
     if (!file) {
       setState({ error: 'Drop a photo file here, for example from the Photos app or Finder.' });
       return;
     }
     setState('working');
+    const { openImage, UnreadablePhoto } = await import('./photo');
     try {
-      const { squareJpeg, newPhotoId, toBase64, UnreadablePhoto } = await import('./photo');
-      let jpg: Uint8Array;
-      try {
-        jpg = await squareJpeg(file);
-      } catch (e) {
-        if (e instanceof UnreadablePhoto) {
-          setState({
-            error: e.heic
-              ? "This is an iPhone (HEIC) photo, which this browser can't open. In Photos, choose File, " +
-                'Export, Export 1 Photo, pick JPEG, then drag that file here. Or use Safari.'
-              : "That file couldn't be opened as a photo. Try a JPEG or PNG photo.",
-          });
-          return;
-        }
-        throw e;
-      }
+      setCropping(await openImage(file));
+      setState('idle');
+    } catch (e) {
+      setState({
+        error:
+          e instanceof UnreadablePhoto && e.heic
+            ? "This is an iPhone (HEIC) photo, which this browser can't open. In Photos, choose File, " +
+              'Export, Export 1 Photo, pick JPEG, then drag that file here. Or use Safari.'
+            : "That file couldn't be opened as a photo. Try a JPEG or PNG photo.",
+      });
+    }
+  };
+  const use = async (square: Square) => {
+    const image = cropping;
+    setCropping(null);
+    if (!image) return;
+    setState('working');
+    try {
+      const { cropToJpeg, newPhotoId, toBase64 } = await import('./photo');
+      const jpg = await cropToJpeg(image, square);
       const id = newPhotoId();
       await db.savePhoto(boardId, id, jpg);
       addPhoto(id, toBase64(jpg));
@@ -1060,7 +1072,7 @@ function usePhotoUpload(boardId: string, onUploaded: (icon: string) => void) {
       setState({ error: `Couldn't upload the photo. ${friendly(e)}` });
     }
   };
-  return { state, upload };
+  return { state, upload, cropping, use, cancel: () => setCropping(null) };
 }
 
 function PhotoUpload({ state, upload }: { state: UploadState; upload: (file: File | undefined) => void }) {
@@ -1104,7 +1116,7 @@ function PersonRow({
   onMove: (by: number) => void;
   onRemove: () => void;
 }) {
-  const { state, upload } = usePhotoUpload(boardId, (icon) => onChange({ icon }));
+  const { state, upload, cropping, use, cancel } = usePhotoUpload(boardId, (icon) => onChange({ icon }));
   const [dragging, setDragging] = useState(false);
   const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
   return (
@@ -1129,6 +1141,7 @@ function PersonRow({
         void upload(e.dataTransfer.files[0]);
       }}
     >
+      {cropping && <CropDialog image={cropping} name={person.name} onUse={(sq) => void use(sq)} onCancel={cancel} />}
       {dragging && <div className="ed-drop-overlay">Drop the photo to use it for {person.name || 'this person'}</div>}
       <div className="ed-person-picture">
         <IconPicker icon={person.icon} onPick={(icon) => onChange({ icon })} />
@@ -1158,7 +1171,7 @@ function PeopleEditor({ boardId, board, onChange }: { boardId: string; board: Bo
       </p>
       <p className="ed-hint">
         For each person you can choose a picture, upload a photo, or drag a photo onto their row (from the Photos app,
-        Finder or your desktop). Photos are trimmed to a square and stored with his
+        Finder or your desktop). You then frame their face (it is found for you). Photos are stored small with his
         board; like the names and numbers, anyone with his private link could see them.
       </p>
       {people.length === 0 && <p className="ed-quiet">Nobody yet, so the Text button is hidden.</p>}

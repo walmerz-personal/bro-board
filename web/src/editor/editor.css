@@ -893,3 +893,73 @@ body.editing #root {
     stroke-dashoffset: 0;
   }
 }
+
+/* Frame their face */
+.ed-crop {
+  width: min(420px, 100%);
+}
+.ed-crop-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px 8px;
+}
+.ed-crop-status {
+  margin: 0;
+  min-height: 2.9em;
+  text-align: center;
+  color: var(--ed-muted);
+}
+.ed-crop-status.is-found {
+  color: #164a28;
+  font-weight: 700;
+}
+.ed-crop-stage {
+  position: relative;
+  width: 300px;
+  height: 300px;
+}
+.ed-crop-canvas {
+  display: block;
+  border-radius: 18px;
+  cursor: grab;
+  touch-action: none;
+  background: #e9e1d4;
+}
+.ed-crop-canvas:active {
+  cursor: grabbing;
+}
+.ed-crop-canvas:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+/* A light circle shows where the face should sit. */
+.ed-crop-ring {
+  position: absolute;
+  inset: 12%;
+  border: 2px dashed rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+.ed-crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 300px;
+}
+.ed-crop-zoom input {
+  flex: 1;
+}
+.ed .ed-crop-zoom button {
+  min-width: 44px;
+  padding: 4px 0;
+  font-size: 22px;
+}
+.ed-crop-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px 18px;
+}

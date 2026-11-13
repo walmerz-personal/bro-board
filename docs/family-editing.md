@@ -31,7 +31,7 @@ In the **People he can text** section, add each person with:
 
 - **Name on his button**: 3 words or fewer, for example "Mum" or "Nurse station".
 - **Mobile number**: type it the usual way, for example `(555) 212-3456`. US and Canada numbers need all 10 digits; for another country start with `+` and the country code. The editor shows where texts will go, and Save stays off until the number is complete.
-- **Picture**: tap **Change picture** to choose a drawn picture, or **Upload a photo** to use a real photo of the person. On a computer you can also drag a photo straight onto the person's row, for example from the Photos app, Finder or your desktop. Photos are trimmed to a square and made small automatically.
+- **Picture**: tap **Change picture** to choose a drawn picture, or **Upload a photo** to use a real photo of the person. On a computer you can also drag a photo straight onto the person's row, for example from the Photos app, Finder or your desktop. A **Frame their face** window then opens: it finds the face by itself and zooms in on it. Drag the photo or use the zoom slider (or + and −) to adjust, then press **Use this photo**. If it can't find a face, frame it yourself the same way. **Show whole photo** zooms back out, and **Cancel** leaves the picture as it was. Finding the face happens on your own computer; the photo is only sent when you press Use this photo, and it is stored small.
   - If a photo from an iPhone won't open (it says "HEIC"), in Photos choose **File › Export › Export 1 Photo**, pick **JPEG**, and drag the exported file instead. Safari can usually open these photos directly.
   - Photos are stored with his board, not in the code. Like the names and numbers, anyone with his private link could see them.
 

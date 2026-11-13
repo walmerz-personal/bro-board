@@ -114,8 +114,10 @@ describe('navigation', () => {
   });
 
   it('More moves to the next home page and wraps around', () => {
+    // The starter board has three Home screens (5 + 5 + 1 buttons).
     expect(current(run({ type: 'more' }))).toEqual({ name: 'home', page: 1 });
-    expect(current(run({ type: 'more' }, { type: 'more' }))).toEqual({ name: 'home', page: 0 });
+    expect(current(run({ type: 'more' }, { type: 'more' }))).toEqual({ name: 'home', page: 2 });
+    expect(current(run({ type: 'more' }, { type: 'more' }, { type: 'more' }))).toEqual({ name: 'home', page: 0 });
   });
 
   it('Back goes up one level and Home goes to the start', () => {
