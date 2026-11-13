@@ -1,0 +1,352 @@
+/* The editor page. Unlike his board, it scrolls and text can be selected. */
+
+body.editing {
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: auto;
+  background: #f3f5f8;
+}
+body.editing #root {
+  height: auto;
+}
+
+.editor-loading {
+  padding: 24px;
+  font-size: 18px;
+}
+
+.ed {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.ed button,
+.ed .ed-button {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid #8a96a3;
+  border-radius: 8px;
+  background: #fff;
+  color: #111;
+  text-decoration: none;
+  display: inline-block;
+}
+.ed button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ed .ed-primary {
+  background: #0b4f9e;
+  border-color: #0b4f9e;
+  color: #fff;
+  font-weight: 600;
+}
+.ed .ed-danger {
+  color: #a3161a;
+}
+.ed .ed-link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #0b4f9e;
+  text-decoration: underline;
+}
+
+.ed-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 0;
+}
+.ed-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+.ed-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ed-user span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ed-card {
+  background: #fff;
+  border: 1px solid #d5dbe2;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0 0 16px;
+}
+.ed-card h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.ed-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.ed-center {
+  text-align: center;
+  padding: 32px 16px;
+}
+.ed-small {
+  color: #4a5562;
+  font-size: 14px;
+}
+
+.ed-link {
+  display: flex;
+  gap: 8px;
+}
+.ed-link input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px;
+  border: 1px solid #8a96a3;
+  border-radius: 8px;
+}
+
+.ed-savebar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  background: #f3f5f8;
+}
+.ed-savebar-note {
+  color: #4a5562;
+}
+
+.ed-status {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.ed-info {
+  background: #e7f0fb;
+}
+.ed-ok {
+  background: #e3f4ea;
+}
+.ed-error {
+  background: #fdecec;
+  color: #8c1013;
+}
+p.ed-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.ed-problems {
+  border-color: #d64545;
+  background: #fff6f6;
+}
+.ed-warnings {
+  border-color: #d9a400;
+  background: #fffbea;
+}
+.ed-problems ul,
+.ed-warnings ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ed-category {
+  border-top: 1px solid #e3e7ec;
+  padding: 14px 0;
+}
+.ed-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ed-item {
+  padding: 10px 0 10px 12px;
+  border-left: 3px solid #dfe7f1;
+  margin: 8px 0;
+}
+.ed-items {
+  margin: 8px 0 0;
+}
+
+.ed-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+.ed-field > span {
+  font-weight: 600;
+  font-size: 14px;
+}
+.ed-field input {
+  font: inherit;
+  padding: 8px;
+  border: 1px solid #8a96a3;
+  border-radius: 8px;
+}
+.ed-field small {
+  color: #4a5562;
+  font-size: 13px;
+}
+.ed-wide {
+  flex: 1;
+  min-width: 220px;
+}
+.ed .ed-bad {
+  border-color: #d64545;
+  background: #fff6f6;
+}
+.ed .ed-bad-text {
+  color: #a3161a;
+  font-weight: 600;
+}
+
+.ed-row-buttons {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  padding-top: 22px;
+}
+.ed-row-buttons button {
+  min-width: 42px;
+}
+
+.ed-kind {
+  border: none;
+  padding: 0;
+  margin: 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.ed-kind legend {
+  font-weight: 600;
+  font-size: 14px;
+  padding: 0;
+  margin-bottom: 4px;
+}
+.ed-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 22px;
+}
+
+.ed .ed-icon-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  width: 76px;
+}
+.ed-icon-button img {
+  width: 48px;
+  height: 48px;
+}
+.ed-icon-button small {
+  font-size: 12px;
+  color: #0b4f9e;
+}
+
+.ed-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.ed-modal-box {
+  background: #fff;
+  border-radius: 12px;
+  width: min(760px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.ed-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e3e7ec;
+}
+.ed-modal-head h3 {
+  margin: 0;
+}
+.ed-icon-grid {
+  overflow: auto;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.ed .ed-icon-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  font-size: 13px;
+}
+.ed-icon-choice img {
+  width: 56px;
+  height: 56px;
+}
+.ed .ed-icon-choice.is-current {
+  border: 3px solid #0b4f9e;
+}
+
+.ed-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.ed-settings .ed-check {
+  padding-top: 0;
+}
+
+.ed-versions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ed-versions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #e3e7ec;
+}
+
+@media (max-width: 600px) {
+  .ed-row-buttons {
+    margin-left: 0;
+    padding-top: 0;
+  }
+  .ed-field,
+  .ed-wide {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+}

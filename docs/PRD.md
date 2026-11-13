@@ -128,7 +128,7 @@ This is a first draft from the examples given. Family should change wording to m
 - Every phrase on the board has a ready-made recording in a natural-sounding male voice. The recordings are part of the app, so they work without internet and sound the same on every phone.
 - The recordings are made once with Kokoro, a free open-source voice model, using `tools/make-audio.py`.
 - If a phrase has no recording, or the recording cannot play, the app uses the voice built into the phone.
-- A phrase that family adds later uses the phone voice until a recording is made for it. Making that automatic is part of stage 2.
+- A phrase that family adds later gets a recording automatically: the editor makes it in the browser with the same Kokoro voice when the phrase is saved. Until it is ready, the phone voice is used.
 
 ## 8. Texting
 

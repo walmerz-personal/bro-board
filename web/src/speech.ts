@@ -5,19 +5,35 @@ import manifest from './data/audio-manifest.json';
 
 const recordings: Record<string, string> = manifest.files;
 
+// Recordings downloaded for phrases family added in the editor (phrase -> MP3 as base64).
+let downloaded: Record<string, string> = {};
+
+/** Use these downloaded recordings from now on. */
+export function setDownloadedRecordings(map: Record<string, string>): void {
+  downloaded = map;
+}
+
 function canSynthesize(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
 
 /** Whether this phrase can be spoken on this phone. */
 export function canSpeak(text?: string): boolean {
-  if (text !== undefined && recordings[text]) return true;
+  if (text !== undefined && (recordings[text] || downloaded[text])) return true;
   return canSynthesize();
 }
 
-/** The recording for a phrase, or null if it has none. */
+/** The recording that comes with the app for a phrase, or null if it has none. */
 export function recordingFor(text: string): string | null {
   return recordings[text] ?? null;
+}
+
+/** Where to play a phrase's recording from, or null to use the phone's voice. */
+function sourceFor(text: string): string | null {
+  const file = recordingFor(text);
+  if (file) return `${import.meta.env.BASE_URL}audio/${file}`;
+  const data = downloaded[text];
+  return data ? `data:audio/mpeg;base64,${data}` : null;
 }
 
 /** The parts of a browser voice that matter for choosing one. */
@@ -93,8 +109,8 @@ let player: HTMLAudioElement | null = null;
 /** Say the text. Anything already being said is stopped first. */
 export function speak(text: string, rate: number, onDone?: () => void): void {
   stopSpeaking();
-  const file = recordingFor(text);
-  if (!file || typeof Audio === 'undefined') {
+  const source = sourceFor(text);
+  if (!source || typeof Audio === 'undefined') {
     synthesize(text, rate, onDone);
     return;
   }
@@ -112,7 +128,7 @@ export function speak(text: string, rate: number, onDone?: () => void): void {
     onDone?.();
   };
   audio.onerror = fallBack;
-  audio.src = `${import.meta.env.BASE_URL}audio/${file}`;
+  audio.src = source;
   audio.currentTime = 0;
   audio.play().catch(fallBack);
 }

@@ -1,0 +1,72 @@
+rules_version = '2';
+
+// Who may read and change Bro Board's data.
+//
+// - A board can be read by anyone who knows its exact id. The id is long and
+//   random and only appears in his private link, so knowing it is the key.
+//   Nobody can ask for a list of boards except approved editors.
+// - Only approved editors can change anything. An approved editor is someone
+//   signed in with Google whose email has a document in the "editors"
+//   collection. That list lives only in the database, never in this file.
+// - The editors list can only be changed in the Firebase console.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isEditor() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/editors/$(request.auth.token.email));
+    }
+
+    // Long random ids only, so a board cannot be given a guessable name.
+    function goodId(id) {
+      return id.matches('^[A-Za-z0-9_-]{32,64}$');
+    }
+
+    match /editors/{email} {
+      // Each person may check their own entry, so the editor page can say
+      // "you are not on the list". Nobody can list or change entries here.
+      allow get: if signedIn() && request.auth.token.email == email;
+    }
+
+    match /boards/{boardId} {
+      allow get: if true;
+      allow list: if isEditor();
+      allow create, update: if isEditor()
+        && goodId(boardId)
+        && request.resource.data.keys().hasOnly(['json', 'updatedAt'])
+        && request.resource.data.json is string
+        && request.resource.data.json.size() < 200000
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isEditor();
+
+      // Voice recordings, one per phrase. Same key: the board's id.
+      match /audio/{audioId} {
+        allow get: if true;
+        allow list: if isEditor();
+        allow create, update: if isEditor()
+          && audioId.matches('^[0-9a-f]{12}$')
+          && request.resource.data.keys().hasOnly(['phrase', 'voice', 'mp3'])
+          && request.resource.data.phrase is string
+          && request.resource.data.voice is string
+          && request.resource.data.mp3 is bytes
+          && request.resource.data.mp3.size() < 600000;
+        allow delete: if isEditor();
+      }
+
+      // Earlier saved versions, for "Restore previous version". Editors only.
+      match /history/{versionId} {
+        allow read, delete: if isEditor();
+        allow create: if isEditor()
+          && request.resource.data.keys().hasOnly(['json', 'savedAt'])
+          && request.resource.data.json is string
+          && request.resource.data.json.size() < 200000
+          && request.resource.data.savedAt == request.time;
+      }
+    }
+  }
+}
