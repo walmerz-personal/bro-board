@@ -97,6 +97,14 @@ This is a first draft from the examples given. Family should change wording to m
 
 **Page 2 of Home**
 
+0. **Feelings** (added later, for answering "How are you?")
+   - Good: "I feel good."
+   - Okay: "I am okay."
+   - Not good: "I don't feel good."
+   - Sad: "I feel sad."
+   - Tired: "I am tired."
+   - Worried: "I feel worried."
+
 1. **Clothes**
    - Pants: "Please help me put on pants."
    - Shirt: "Please help me put on a shirt."
