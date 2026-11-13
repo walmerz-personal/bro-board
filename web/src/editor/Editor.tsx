@@ -1,7 +1,7 @@
 // The editor page, for approved family members. Opened with …/bro-board/#edit.
 // Nothing here is reachable from his screens.
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import starter from '../data/default-board.json';
 import {
@@ -23,12 +23,13 @@ import { recordingFor } from '../speech';
 import { formatPhone, normalizePhone, textBody } from '../texting';
 import * as db from './db';
 import { setSafeToReload } from '../update';
+import { addPhoto, hasPhoto, isPhoto, photoIdOf, photosVersion, pictureSrc, subscribePhotos } from '../photos';
 import './editor.css';
 
 const starterBoard = starter as Board;
 
 function iconUrl(icon: string): string {
-  return `${import.meta.env.BASE_URL}symbols/${icon}.svg`;
+  return pictureSrc(icon);
 }
 
 function linkFor(boardId: string): string {
@@ -74,6 +75,19 @@ export default function Editor() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [approved, setApproved] = useState<boolean | null>(null);
   const [signInError, setSignInError] = useState('');
+
+  // A photo dropped outside a person's row would otherwise open in place of the editor.
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) e.preventDefault();
+    };
+    window.addEventListener('dragover', stop);
+    window.addEventListener('drop', stop);
+    return () => {
+      window.removeEventListener('dragover', stop);
+      window.removeEventListener('drop', stop);
+    };
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('editing');
@@ -278,6 +292,20 @@ function Workspace() {
     setSafeToReload(!dirty);
     return () => setSafeToReload(false);
   }, [dirty]);
+
+  // Fetch photos of people on the board that this computer has not seen yet.
+  useSyncExternalStore(subscribePhotos, photosVersion);
+  useEffect(() => {
+    if (!boardId || !draft) return;
+    for (const person of draft.recipients ?? []) {
+      if (!isPhoto(person.icon)) continue;
+      const id = photoIdOf(person.icon);
+      if (hasPhoto(id)) continue;
+      db.getPhoto(boardId, id)
+        .then((data) => data && addPhoto(id, data))
+        .catch(() => undefined);
+    }
+  }, [boardId, draft]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -511,7 +539,7 @@ function Workspace() {
             </button>
           </section>
 
-          <PeopleEditor board={draft} onChange={setDraft} />
+          <PeopleEditor boardId={boardId} board={draft} onChange={setDraft} />
 
           <SettingsEditor board={draft} onChange={setDraft} />
 
@@ -995,7 +1023,128 @@ function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function PeopleEditor({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
+type UploadState = 'idle' | 'working' | { error: string };
+
+/** Turn a picked or dropped photo into a person's picture. Shared by the button and drag and drop. */
+function usePhotoUpload(boardId: string, onUploaded: (icon: string) => void) {
+  const [state, setState] = useState<UploadState>('idle');
+  const upload = async (file: File | undefined) => {
+    if (!file) {
+      setState({ error: 'Drop a photo file here, for example from the Photos app or Finder.' });
+      return;
+    }
+    setState('working');
+    try {
+      const { squareJpeg, newPhotoId, toBase64, UnreadablePhoto } = await import('./photo');
+      let jpg: Uint8Array;
+      try {
+        jpg = await squareJpeg(file);
+      } catch (e) {
+        if (e instanceof UnreadablePhoto) {
+          setState({
+            error: e.heic
+              ? "This is an iPhone (HEIC) photo, which this browser can't open. In Photos, choose File, " +
+                'Export, Export 1 Photo, pick JPEG, then drag that file here. Or use Safari.'
+              : "That file couldn't be opened as a photo. Try a JPEG or PNG photo.",
+          });
+          return;
+        }
+        throw e;
+      }
+      const id = newPhotoId();
+      await db.savePhoto(boardId, id, jpg);
+      addPhoto(id, toBase64(jpg));
+      onUploaded(`photo:${id}`);
+      setState('idle');
+    } catch (e) {
+      setState({ error: `Couldn't upload the photo. ${friendly(e)}` });
+    }
+  };
+  return { state, upload };
+}
+
+function PhotoUpload({ state, upload }: { state: UploadState; upload: (file: File | undefined) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="ed-upload">
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="visually-hidden"
+        tabIndex={-1}
+        onChange={(e) => {
+          upload(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      <button onClick={() => input.current?.click()} disabled={state === 'working'}>
+        <CameraIcon /> {state === 'working' ? 'Uploading…' : 'Upload a photo'}
+      </button>
+      <small className="ed-drop-hint">or drag one here</small>
+    </div>
+  );
+}
+
+/** One person: a picture (drawn or a photo, which can be dropped on the row), a name and a number. */
+function PersonRow({
+  boardId,
+  person,
+  first,
+  last,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  boardId: string;
+  person: Recipient;
+  first: boolean;
+  last: boolean;
+  onChange: (patch: Partial<Recipient>) => void;
+  onMove: (by: number) => void;
+  onRemove: () => void;
+}) {
+  const { state, upload } = usePhotoUpload(boardId, (icon) => onChange({ icon }));
+  const [dragging, setDragging] = useState(false);
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
+  return (
+    <div
+      className={dragging ? 'ed-item ed-person is-dropping' : 'ed-item ed-person'}
+      onDragEnter={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragOver={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        void upload(e.dataTransfer.files[0]);
+      }}
+    >
+      {dragging && <div className="ed-drop-overlay">Drop the photo to use it for {person.name || 'this person'}</div>}
+      <div className="ed-person-picture">
+        <IconPicker icon={person.icon} onPick={(icon) => onChange({ icon })} />
+        <PhotoUpload state={state} upload={(file) => void upload(file)} />
+      </div>
+      <div className="ed-item-fields">
+        <LabelInput name="Name on his button" value={person.name} onChange={(name) => onChange({ name })} />
+        <PhoneInput value={person.phone} onChange={(phone) => onChange({ phone })} />
+        {typeof state === 'object' && <p className="ed-status ed-error ed-photo-error">{state.error}</p>}
+      </div>
+      <RowButtons first={first} last={last} onMove={onMove} onRemove={onRemove} what={person.name} />
+    </div>
+  );
+}
+
+function PeopleEditor({ boardId, board, onChange }: { boardId: string; board: Board; onChange: (b: Board) => void }) {
   const people = board.recipients ?? [];
   const set = (next: Recipient[]) => onChange({ ...board, recipients: next });
   const update = (i: number, patch: Partial<Recipient>) => set(people.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -1007,26 +1156,27 @@ function PeopleEditor({ board, onChange }: { board: Board; onChange: (b: Board) 
         Messages app opens with the words filled in, for example "{textBody('I am hungry.')}". He taps Send there; it
         comes from his own number.
       </p>
+      <p className="ed-hint">
+        For each person you can choose a picture, upload a photo, or drag a photo onto their row (from the Photos app,
+        Finder or your desktop). Photos are trimmed to a square and stored with his
+        board; like the names and numbers, anyone with his private link could see them.
+      </p>
       {people.length === 0 && <p className="ed-quiet">Nobody yet, so the Text button is hidden.</p>}
       {people.map((person, i) => (
-        <div className="ed-item ed-person" key={person.id}>
-          <IconPicker icon={person.icon} onPick={(icon) => update(i, { icon })} />
-          <div className="ed-item-fields">
-            <LabelInput name="Name on his button" value={person.name} onChange={(name) => update(i, { name })} />
-            <PhoneInput value={person.phone} onChange={(phone) => update(i, { phone })} />
-          </div>
-          <RowButtons
-            first={i === 0}
-            last={i === people.length - 1}
-            onMove={(by) => set(move(people, i, by))}
-            onRemove={() => {
-              if (window.confirm(`Remove ${person.name} from the people he can text?`)) {
-                set(people.filter((_, j) => j !== i));
-              }
-            }}
-            what={person.name}
-          />
-        </div>
+        <PersonRow
+          key={person.id}
+          boardId={boardId}
+          person={person}
+          first={i === 0}
+          last={i === people.length - 1}
+          onChange={(patch) => update(i, patch)}
+          onMove={(by) => set(move(people, i, by))}
+          onRemove={() => {
+            if (window.confirm(`Remove ${person.name} from the people he can text?`)) {
+              set(people.filter((_, j) => j !== i));
+            }
+          }}
+        />
       ))}
       <button
         className="ed-add"
@@ -1159,6 +1309,11 @@ const ArrowIcon = ({ up }: { up?: boolean }) => (
 const TrashIcon = () => (
   <Svg>
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+  </Svg>
+);
+const CameraIcon = () => (
+  <Svg>
+    <path d="M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" />
   </Svg>
 );
 const PlusIcon = () => (

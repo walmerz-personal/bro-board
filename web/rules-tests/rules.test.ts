@@ -58,6 +58,7 @@ const user = (email: string, verified = true) =>
 const editor = () => user(EDITOR);
 
 const boardData = () => ({ json: '{"version":1}', updatedAt: serverTimestamp() });
+const photoData = () => ({ jpg: Bytes.fromUint8Array(new Uint8Array([255, 216, 255])) });
 const audioData = () => ({
   phrase: 'Hello.', voice: 'am_puck', mp3: Bytes.fromUint8Array(new Uint8Array([1, 2, 3])),
 });
@@ -84,6 +85,14 @@ describe('his phone (no sign-in)', () => {
   it('cannot add a recording', async () => {
     await assertFails(setDoc(doc(nobody(), 'boards', BOARD, 'audio', 'aaaaaaaaaaaa'), audioData()));
   });
+  it('can read a photo whose id it knows, but not list photos', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'boards', BOARD, 'photos', 'photo_abcdef123'), photoData()));
+    await assertSucceeds(getDoc(doc(nobody(), 'boards', BOARD, 'photos', 'photo_abcdef123')));
+    await assertFails(getDocs(collection(nobody(), 'boards', BOARD, 'photos')));
+  });
+  it('cannot upload a photo', async () => {
+    await assertFails(setDoc(doc(nobody(), 'boards', BOARD, 'photos', 'photo_abcdef123'), photoData()));
+  });
   it('cannot read the editors list', async () => {
     await assertFails(getDoc(doc(nobody(), 'editors', EDITOR)));
   });
@@ -92,6 +101,9 @@ describe('his phone (no sign-in)', () => {
 describe('a signed-in person who is not approved', () => {
   it('cannot change a board', async () => {
     await assertFails(setDoc(doc(user(STRANGER), 'boards', BOARD), boardData()));
+  });
+  it('cannot upload a photo', async () => {
+    await assertFails(setDoc(doc(user(STRANGER), 'boards', BOARD, 'photos', 'photo_abcdef123'), photoData()));
   });
   it('cannot delete a board', async () => {
     await assertFails(deleteDoc(doc(user(STRANGER), 'boards', BOARD)));
@@ -141,6 +153,16 @@ describe('an approved editor', () => {
   it('cannot store something that is not a recording', async () => {
     await assertFails(
       setDoc(doc(editor(), 'boards', BOARD, 'audio', 'aaaaaaaaaaaa'), { ...audioData(), mp3: 'text' }),
+    );
+  });
+  it('can upload a photo, but only a small image under a long id', async () => {
+    await assertSucceeds(setDoc(doc(editor(), 'boards', BOARD, 'photos', 'photo_abcdef123'), photoData()));
+    await assertFails(setDoc(doc(editor(), 'boards', BOARD, 'photos', 'p1'), photoData()));
+    await assertFails(setDoc(doc(editor(), 'boards', BOARD, 'photos', 'photo_abcdef123'), { jpg: 'not a picture' }));
+    await assertFails(
+      setDoc(doc(editor(), 'boards', BOARD, 'photos', 'photo_abcdef123'), {
+        jpg: Bytes.fromUint8Array(new Uint8Array(310000)),
+      }),
     );
   });
   it('cannot change the editors list', async () => {

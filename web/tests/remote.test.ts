@@ -162,3 +162,15 @@ describe('texting', () => {
     expect(parseBoard(add('+15552123456', 'My very dear mother'))).toBeNull();
   });
 });
+
+describe('photos', () => {
+  it('shows a downloaded photo, and the family picture until it arrives', async () => {
+    const { pictureSrc, addPhoto, isPhoto } = await import('../src/photos');
+    expect(isPhoto('photo:abc')).toBe(true);
+    expect(isPhoto('family')).toBe(false);
+    expect(pictureSrc('photo:pAbcdef123456')).toMatch(/symbols\/family\.svg$/);
+    addPhoto('pAbcdef123456', 'AAAA');
+    expect(pictureSrc('photo:pAbcdef123456')).toBe('data:image/jpeg;base64,AAAA');
+    expect(pictureSrc('yes')).toMatch(/symbols\/yes\.svg$/);
+  });
+});

@@ -30,3 +30,12 @@ export async function fetchRecording(boardId: string, id: string): Promise<Fetch
   if (typeof mp3 !== 'string') throw new Error('Recording has no sound');
   return { kind: 'ok', value: mp3 };
 }
+
+/** A person's photo as base64 JPEG data, or missing. */
+export async function fetchPhoto(boardId: string, id: string): Promise<Fetched<string>> {
+  const doc = await getDocument(`boards/${encodeURIComponent(boardId)}/photos/${encodeURIComponent(id)}`);
+  if (doc.kind === 'missing') return doc;
+  const jpg = doc.value.jpg?.bytesValue;
+  if (typeof jpg !== 'string') throw new Error('Photo has no picture');
+  return { kind: 'ok', value: jpg };
+}
