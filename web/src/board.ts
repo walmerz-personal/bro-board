@@ -13,6 +13,8 @@ export interface Category {
   icon: string;
   /** A category with a phrase and no items goes straight to the message screen. */
   phrase?: string;
+  /** Speak the phrase the moment the button is pressed, with no Speak step. */
+  speakOnOpen?: boolean;
   items?: Item[];
 }
 

@@ -5,6 +5,7 @@ import boardData from '../src/data/default-board.json';
 import { paginate, shouldAcceptPress, validateBoard, type Board } from '../src/board';
 import { current, initialNav, navReducer, type NavAction } from '../src/nav';
 import { pickVoice, type VoiceInfo } from '../src/speech';
+import manifest from '../src/data/audio-manifest.json';
 
 const board = boardData as Board;
 const symbol = (icon: string) => fileURLToPath(new URL(`../public/symbols/${icon}.svg`, import.meta.url));
@@ -18,6 +19,27 @@ describe('starter board', () => {
     const icons = board.categories.flatMap((c) => [c.icon, ...(c.items ?? []).map((i) => i.icon)]);
     const missing = icons.filter((icon) => !existsSync(symbol(icon)));
     expect(missing).toEqual([]);
+  });
+
+  it('has a recording for every phrase', () => {
+    const phrases = board.categories.flatMap((c) => [
+      ...(c.phrase ? [c.phrase] : []),
+      ...(c.items ?? []).map((i) => i.phrase),
+    ]);
+    const files: Record<string, string> = manifest.files;
+    const audio = (file: string) => fileURLToPath(new URL(`../public/audio/${file}`, import.meta.url));
+    // If this fails after editing a phrase, run tools/make-audio.py again.
+    const missing = phrases.filter((p) => !files[p] || !existsSync(audio(files[p])));
+    expect(missing).toEqual([]);
+  });
+
+  it('puts Yes and No on the first page, speaking with one tap', () => {
+    const firstPage = paginate(board.categories)[0].flatMap((t) => (t.kind === 'entry' ? [t.entry] : []));
+    for (const id of ['yes', 'no']) {
+      const entry = firstPage.find((c) => c.id === id);
+      expect(entry?.speakOnOpen).toBe(true);
+      expect(entry?.phrase).toBeTruthy();
+    }
   });
 
   it('reaches every message in three taps or fewer', () => {

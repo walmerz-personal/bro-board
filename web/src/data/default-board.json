@@ -48,6 +48,20 @@
       ]
     },
     {
+      "id": "yes",
+      "label": "Yes",
+      "icon": "yes",
+      "phrase": "Yes.",
+      "speakOnOpen": true
+    },
+    {
+      "id": "no",
+      "label": "No",
+      "icon": "no",
+      "phrase": "No.",
+      "speakOnOpen": true
+    },
+    {
       "id": "clothes",
       "label": "Clothes",
       "icon": "clothes",
@@ -95,13 +109,6 @@
         { "id": "talk", "label": "Talk", "icon": "talk", "phrase": "I want to talk with someone." }
       ]
     },
-    { "id": "yes", "label": "Yes", "icon": "yes", "phrase": "Yes." },
-    { "id": "no", "label": "No", "icon": "no", "phrase": "No." },
-    {
-      "id": "else",
-      "label": "Something else",
-      "icon": "what",
-      "phrase": "I need something that is not on my board. Please help me work out what."
-    }
+    { "id": "else", "label": "Something else", "icon": "what", "phrase": "I need something that is not on my board. Please help me work out what." }
   ]
 }

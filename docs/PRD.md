@@ -46,7 +46,7 @@ Home (categories)  ->  Items  ->  Message  ->  Speak
    - **Text**: goes to step 4.
 4. **Text.** He picks a person from big name buttons, confirms with Yes or No, and his Messages app opens with that person and the phrase already filled in. He taps Send there.
 
-A category can also be a single message with no items (for example "Yes" or "No"), in which case tapping it goes straight to the Message screen.
+A category can also be a single message with no items (for example "Something else"), in which case tapping it goes straight to the Message screen. **Yes** and **No** go one step further: they are on the first page and speak the moment they are tapped, because they are the answers he needs most often and fastest.
 
 ## 5. Design rules for tremors
 
@@ -91,43 +91,44 @@ This is a first draft from the examples given. Family should change wording to m
    - Stomach: "I have pain in my stomach."
    - Back: "I have pain in my back."
    - More: Arm or hand, Leg or foot, "I feel sick."
-4. **Clothes**
+4. **Yes**: "Yes." Speaks with one tap.
+5. **No**: "No." Speaks with one tap.
+6. **More** (goes to page 2)
+
+**Page 2 of Home**
+
+1. **Clothes**
    - Pants: "Please help me put on pants."
    - Shirt: "Please help me put on a shirt."
    - Socks and shoes: "Please help me with socks and shoes."
    - Change clothes: "I want to change my clothes."
    - Take off: "Please help me take this off."
-5. **TV and movies**
+2. **TV and movies**
    - Put on a movie: "Please put on a movie."
    - Change it: "Please change what is on."
    - Louder: "Please turn it up."
    - Quieter: "Please turn it down."
    - Turn off: "Please turn the TV off."
-6. **More** (goes to page 2)
-
-**Page 2 of Home**
-
-1. **Comfort**
+3. **Comfort**
    - Too hot: "I am too hot."
    - Too cold: "I am too cold."
    - Move me: "Please help me change position."
    - Bed: "I want to go to bed."
    - Get up: "I want to get up."
    - Tired: "I am tired."
-2. **People**
+4. **People**
    - Call family: "I want to call my family."
    - Visit: "I would like a visit."
    - Be alone: "I would like to be alone for a while."
    - Talk: "I want to talk with someone."
-3. **Yes**: "Yes."
-4. **No**: "No."
 5. **Something else**: "I need something that is not on my board. Please help me work out what."
 
 ## 7. Speech
 
-- Uses the voice already built into his phone. No account and no cost.
-- Works without internet.
-- Family can pick the voice and speed in the editor (stage 2).
+- Every phrase on the board has a ready-made recording in a natural-sounding male voice. The recordings are part of the app, so they work without internet and sound the same on every phone.
+- The recordings are made once with Kokoro, a free open-source voice model, using `tools/make-audio.py`.
+- If a phrase has no recording, or the recording cannot play, the app uses the voice built into the phone.
+- A phrase that family adds later uses the phone voice until a recording is made for it. Making that automatic is part of stage 2.
 
 ## 8. Texting
 

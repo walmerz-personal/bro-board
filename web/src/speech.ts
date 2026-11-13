@@ -1,7 +1,23 @@
-// Speaking aloud with the voice built into the phone.
+// Speaking aloud. A phrase with a recording plays that recording; anything
+// else falls back to the voice built into the phone.
 
-export function canSpeak(): boolean {
+import manifest from './data/audio-manifest.json';
+
+const recordings: Record<string, string> = manifest.files;
+
+function canSynthesize(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
+}
+
+/** Whether this phrase can be spoken on this phone. */
+export function canSpeak(text?: string): boolean {
+  if (text !== undefined && recordings[text]) return true;
+  return canSynthesize();
+}
+
+/** The recording for a phrase, or null if it has none. */
+export function recordingFor(text: string): string | null {
+  return recordings[text] ?? null;
 }
 
 /** The parts of a browser voice that matter for choosing one. */
@@ -51,7 +67,7 @@ export function pickVoice<T extends VoiceInfo>(voices: T[]): T | null {
 
 // Phones load their list of voices a moment after the page opens.
 let voices: SpeechSynthesisVoice[] = [];
-if (canSpeak()) {
+if (canSynthesize()) {
   // A phone with only partial speech support must not stop the board loading.
   const load = () => {
     try {
@@ -71,9 +87,38 @@ if (canSpeak()) {
 // Kept here so the phone does not discard it part-way through (an iPhone quirk).
 let active: SpeechSynthesisUtterance | null = null;
 
+// One player, reused, so a new phrase always replaces the last one.
+let player: HTMLAudioElement | null = null;
+
 /** Say the text. Anything already being said is stopped first. */
 export function speak(text: string, rate: number, onDone?: () => void): void {
-  if (!canSpeak()) {
+  stopSpeaking();
+  const file = recordingFor(text);
+  if (!file || typeof Audio === 'undefined') {
+    synthesize(text, rate, onDone);
+    return;
+  }
+
+  let settled = false;
+  const audio = (player ??= new Audio());
+  const fallBack = () => {
+    if (settled) return;
+    settled = true;
+    synthesize(text, rate, onDone);
+  };
+  audio.onended = () => {
+    if (settled) return;
+    settled = true;
+    onDone?.();
+  };
+  audio.onerror = fallBack;
+  audio.src = `${import.meta.env.BASE_URL}audio/${file}`;
+  audio.currentTime = 0;
+  audio.play().catch(fallBack);
+}
+
+function synthesize(text: string, rate: number, onDone?: () => void): void {
+  if (!canSynthesize()) {
     onDone?.();
     return;
   }
@@ -118,7 +163,13 @@ export function speak(text: string, rate: number, onDone?: () => void): void {
 }
 
 export function stopSpeaking(): void {
-  if (!canSpeak()) return;
+  if (player) {
+    // Clear the handlers first so stopping does not trigger the fallback voice.
+    player.onended = null;
+    player.onerror = null;
+    player.pause();
+  }
+  if (!canSynthesize()) return;
   const synth = window.speechSynthesis;
   if (synth.speaking || synth.pending) synth.cancel();
 }

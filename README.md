@@ -37,6 +37,8 @@ npm run dev
 
 The starter buttons are in `web/src/data/default-board.json`. Each button has a short label, a picture name from `web/public/symbols`, and the phrase that is spoken or shown.
 
+Each phrase also has a voice recording in `web/public/audio`. After changing or adding a phrase, run `tools/make-audio.py` again (instructions are at the top of that file) to make the missing recordings. The tests fail if a phrase has no recording.
+
 When a change is merged into `main`, GitHub tests it and publishes the site automatically.
 
 ## Build stages
@@ -47,7 +49,9 @@ When a change is merged into `main`, GitHub tests it and publishes the site auto
 
 ## Credits
 
-The pictures on the buttons are from [Mulberry Symbols](https://mulberrysymbols.org/), copyright Steve Lee, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Some files were renamed; the pictures are unchanged. The licence text is in `web/public/symbols/LICENSE-mulberry.txt`. Design ideas are informed by [Cboard](https://github.com/cboard-org/cboard); no Cboard code is used.
+The pictures on the buttons are from [Mulberry Symbols](https://mulberrysymbols.org/), copyright Steve Lee, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Some files were renamed; the pictures are unchanged. The licence text is in `web/public/symbols/LICENSE-mulberry.txt`. The voice recordings were made with [Kokoro](https://github.com/hexgrad/kokoro), an open-source voice model licensed Apache-2.0.
+
+Design ideas are informed by [Cboard](https://github.com/cboard-org/cboard); no Cboard code is used.
 
 ## Privacy
 
