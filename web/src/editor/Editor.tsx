@@ -177,6 +177,8 @@ function Workspace() {
   const [status, setStatus] = useState<Status>(null);
   const [voiceStatus, setVoiceStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [voiceProgress, setVoiceProgress] = useState<{ done: number; total: number } | null>(null);
   const [versions, setVersions] = useState<db.Version[] | null>(null);
   const [loadError, setLoadError] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -213,6 +215,7 @@ function Workspace() {
         return;
       }
       const { makeRecording } = await import('./voice');
+      setVoiceProgress({ done: 0, total: missing.length });
       for (const [i, [audio, phrase]] of missing.entries()) {
         setVoiceStatus({
           kind: 'info',
@@ -222,6 +225,7 @@ function Workspace() {
             'Please keep this page open.',
         });
         await db.saveRecording(id, audio, phrase, VOICE, await makeRecording(phrase));
+        setVoiceProgress({ done: i + 1, total: missing.length });
       }
       setVoiceStatus({ kind: 'ok', text: 'Voice recordings are ready. His phone picks them up within a few minutes.' });
     } catch (e) {
@@ -232,6 +236,7 @@ function Workspace() {
           'voice for new phrases. They are tried again each time you save or open this page.',
       });
     } finally {
+      setVoiceProgress(null);
       run.running = false;
       const again = run.again;
       run.again = null;
@@ -319,6 +324,8 @@ function Workspace() {
     try {
       await db.saveBoard(boardId, json);
       setSavedJson(json);
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 1800);
       setStatus({ kind: 'ok', text: 'Saved. His phone picks up the change within a few minutes.' });
       void loadVersions(boardId);
       void syncVoices(boardId, draft);
@@ -390,8 +397,18 @@ function Workspace() {
   return (
     <>
       <div className="ed-savebar">
-        <button className="ed-primary" disabled={!dirty || busy || problems.length > 0} onClick={save}>
-          Save changes
+        <button
+          className={justSaved ? 'ed-primary is-saved' : 'ed-primary'}
+          disabled={!dirty || busy || problems.length > 0}
+          onClick={save}
+        >
+          {justSaved ? (
+            <>
+              <CheckIcon /> Saved
+            </>
+          ) : (
+            'Save changes'
+          )}
         </button>
         <button disabled={!dirty || busy} onClick={() => setDraft(parseBoard(savedJson))}>
           Undo changes
@@ -405,7 +422,24 @@ function Workspace() {
         </span>
       </div>
       {status && <p className={`ed-status ed-${status.kind}`}>{status.text}</p>}
-      {voiceStatus && <p className={`ed-status ed-${voiceStatus.kind}`}>{voiceStatus.text}</p>}
+      {voiceStatus && (
+        <div className={`ed-status ed-${voiceStatus.kind}`}>
+          <p>{voiceStatus.text}</p>
+          {voiceProgress && (
+            <div
+              className="ed-progress"
+              role="progressbar"
+              aria-label="Voice recordings made"
+              aria-valuemin={0}
+              aria-valuemax={voiceProgress.total}
+              aria-valuenow={voiceProgress.done}
+            >
+              {/* Starts a sliver in, so it never looks stuck at nothing. */}
+              <span style={{ width: `${Math.max(6, (voiceProgress.done / voiceProgress.total) * 100)}%` }} />
+            </div>
+          )}
+        </div>
+      )}
 
       {problems.length > 0 && (
         <section className="ed-note ed-problems" role="alert">
@@ -550,6 +584,22 @@ function PhonePreview({
 }) {
   const open = board.categories.find((c) => c.id === openId && (c.items?.length ?? 0) > 0);
   const homePages = paginate(board.categories);
+  // A button glows briefly when it changes. Screens that just appeared (for
+  // example when a category is opened) and the first load stay still.
+  const before = useRef(new Map<string, string>());
+  const seen = new Map<string, string>();
+  const changed = (screen: string, t: MiniTile) => {
+    const key = `${screen}:${t.key}`;
+    const look = `${t.label}|${t.icon}|${t.style?.['--tile'] ?? ''}`;
+    seen.set(key, look);
+    const old = before.current.get(key);
+    if (old !== undefined) return old !== look;
+    return [...before.current.keys()].some((k) => k.startsWith(`${screen}:`));
+  };
+  useEffect(() => {
+    before.current = seen;
+  });
+  const mark = (screen: string, tiles: MiniTile[]) => tiles.map((t) => ({ ...t, changed: changed(screen, t) }));
   return (
     <div className="ed-preview">
       <h2>His phone</h2>
@@ -558,17 +608,20 @@ function PhonePreview({
         <MiniScreen
           key={`home-${p}`}
           title={`Home${homePages.length > 1 ? ` · screen ${p + 1}` : ''}`}
-          tiles={page.map((t) =>
-            t.kind === 'more'
-              ? { key: 'more', more: true, label: p === homePages.length - 1 ? 'Back to start' : 'More' }
-              : {
-                  key: t.entry.id,
-                  label: t.entry.label,
-                  icon: t.entry.icon,
-                  style: swatchStyle(colorFor(t.entry)),
-                  current: t.entry.id === openId,
-                  onPick: () => onPick(t.entry.id),
-                },
+          tiles={mark(
+            `home-${p}`,
+            page.map((t) =>
+              t.kind === 'more'
+                ? { key: 'more', more: true, label: p === homePages.length - 1 ? 'Back to start' : 'More' }
+                : {
+                    key: t.entry.id,
+                    label: t.entry.label,
+                    icon: t.entry.icon,
+                    style: swatchStyle(colorFor(t.entry)),
+                    current: t.entry.id === openId,
+                    onPick: () => onPick(t.entry.id),
+                  },
+            ),
           )}
         />
       ))}
@@ -577,10 +630,13 @@ function PhonePreview({
           <MiniScreen
             key={`open-${p}`}
             title={`${open.label}${all.length > 1 ? ` · screen ${p + 1}` : ''}`}
-            tiles={page.map((t) =>
-              t.kind === 'more'
-                ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
-                : { key: t.entry.id, label: t.entry.label, icon: t.entry.icon, style: swatchStyle(colorFor(open)) },
+            tiles={mark(
+              `open-${open.id}-${p}`,
+              page.map((t) =>
+                t.kind === 'more'
+                  ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
+                  : { key: t.entry.id, label: t.entry.label, icon: t.entry.icon, style: swatchStyle(colorFor(open)) },
+              ),
             )}
           />
         ))}
@@ -589,10 +645,13 @@ function PhonePreview({
           <MiniScreen
             key={`people-${p}`}
             title={`Text who?${all.length > 1 ? ` · screen ${p + 1}` : ''}`}
-            tiles={page.map((t) =>
-              t.kind === 'more'
-                ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
-                : { key: t.entry.id, label: t.entry.name, icon: t.entry.icon, style: swatchStyle(PALETTE.purple) },
+            tiles={mark(
+              `people-${p}`,
+              page.map((t) =>
+                t.kind === 'more'
+                  ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
+                  : { key: t.entry.id, label: t.entry.name, icon: t.entry.icon, style: swatchStyle(PALETTE.purple) },
+              ),
             )}
           />
         ),
@@ -608,6 +667,8 @@ interface MiniTile {
   more?: boolean;
   style?: Record<string, string>;
   current?: boolean;
+  /** Changed since the last look: glows briefly. */
+  changed?: boolean;
   onPick?: () => void;
 }
 
@@ -619,8 +680,8 @@ function MiniScreen({ title, tiles }: { title: string; tiles: MiniTile[] }) {
         {tiles.map((t) =>
           t.onPick ? (
             <button
-              key={t.key}
-              className={t.current ? 'ed-mini-tile is-current' : 'ed-mini-tile'}
+              key={`${t.key}|${t.label}|${t.icon}|${t.style?.['--tile'] ?? ''}`}
+              className={`ed-mini-tile${t.current ? ' is-current' : ''}${t.changed ? ' is-changed' : ''}`}
               style={t.style}
               onClick={t.onPick}
               aria-label={`Edit ${t.label}`}
@@ -629,7 +690,11 @@ function MiniScreen({ title, tiles }: { title: string; tiles: MiniTile[] }) {
               <span>{t.label}</span>
             </button>
           ) : (
-            <div key={t.key} className={t.more ? 'ed-mini-tile ed-mini-more' : 'ed-mini-tile'} style={t.style}>
+            <div
+              key={`${t.key}|${t.label}|${t.icon}|${t.style?.['--tile'] ?? ''}`}
+              className={`ed-mini-tile${t.more ? ' ed-mini-more' : ''}${t.changed ? ' is-changed' : ''}`}
+              style={t.style}
+            >
               {t.icon && <img src={iconUrl(t.icon)} alt="" />}
               <span>{t.label}</span>
             </div>
@@ -1047,6 +1112,14 @@ function SettingsEditor({ board, onChange }: { board: Board; onChange: (b: Board
             A gentle buzz when a press counts
           </label>
           <label className="ed-check">
+            <input
+              type="checkbox"
+              checked={s.animations !== false}
+              onChange={(e) => set({ animations: e.target.checked })}
+            />
+            Little animations (a tick that draws itself, a soft glow, springy buttons)
+          </label>
+          <label className="ed-check">
             <input type="checkbox" checked={s.speakLabels} onChange={(e) => set({ speakLabels: e.target.checked })} />
             Say each button's name aloud when pressed
           </label>
@@ -1066,6 +1139,11 @@ function Svg({ children }: { children: ReactNode }) {
     </svg>
   );
 }
+const CheckIcon = () => (
+  <Svg>
+    <path className="tick-path" d="M5 12.5l4.5 4.5L19 7.5" />
+  </Svg>
+);
 const ArrowIcon = ({ up }: { up?: boolean }) => (
   <Svg>
     <path d={up ? 'M12 19V5M5 12l7-7 7 7' : 'M12 5v14M19 12l-7 7-7-7'} />

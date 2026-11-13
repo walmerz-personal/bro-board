@@ -120,6 +120,11 @@ describe('colours', () => {
     }
   });
 
+  it('accepts the optional animations setting and rejects a wrong type', () => {
+    expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"animations":false'))?.settings.animations).toBe(false);
+    expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"animations":1'))).toBeNull();
+  });
+
   it('accepts the optional buzz setting and rejects a wrong type', () => {
     expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"vibrate":false'))?.settings.vibrate).toBe(false);
     expect(parseBoard(json.replace('"speechRate":0.9', '"speechRate":0.9,"vibrate":"no"'))).toBeNull();

@@ -44,6 +44,8 @@ export interface Settings {
   speechRate: number;
   /** A short buzz when a press counts, on phones that can. On unless turned off. */
   vibrate?: boolean;
+  /** Small, gentle animations (ticks, glows, springy buttons). On unless turned off. */
+  animations?: boolean;
 }
 
 export interface Board {
@@ -171,6 +173,7 @@ export function parseBoard(json: string): Board | null {
   if (!isNumber(s.repeatDelayMs) || !isNumber(s.holdMs) || !isNumber(s.speechRate)) return null;
   if (typeof s.speakLabels !== 'boolean') return null;
   if (s.vibrate !== undefined && typeof s.vibrate !== 'boolean') return null;
+  if (s.animations !== undefined && typeof s.animations !== 'boolean') return null;
   if (!Array.isArray(b.categories) || b.categories.length === 0) return null;
 
   const categories: Category[] = [];
@@ -216,6 +219,7 @@ export function parseBoard(json: string): Board | null {
       speakLabels: s.speakLabels,
       speechRate: s.speechRate,
       ...(s.vibrate !== undefined ? { vibrate: s.vibrate } : {}),
+      ...(s.animations !== undefined ? { animations: s.animations } : {}),
     },
     categories,
     ...(recipients ? { recipients } : {}),

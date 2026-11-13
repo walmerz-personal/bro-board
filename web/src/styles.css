@@ -191,6 +191,7 @@ button:focus-visible {
 }
 
 .tile {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -305,6 +306,7 @@ button:focus-visible {
 }
 
 .message-phrase {
+  position: relative;
   min-height: 0;
   display: grid;
   grid-template-columns: 36% 1fr;
@@ -595,5 +597,133 @@ button:focus-visible {
   .bar-button:active:not(:disabled),
   .bar-button.is-pressed {
     transform: none;
+  }
+}
+
+/*
+  Little touches. Each plays once, only after his own tap, and lasts under
+  half a second (the speaking waves run only while the voice plays). None of
+  them play if family turn "Little animations" off or his phone asks for less
+  motion.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  /* A new screen fades in rather than snapping. Nothing slides. */
+  .app:not(.motion-off) :is(.strip, .grid, .message, .big, .confirm) {
+    animation: screen-in 140ms ease-out both;
+  }
+
+  /* Pressed tiles spring back with a tiny bounce. */
+  .app:not(.motion-off) .tile {
+    transition:
+      background-color 140ms ease-out,
+      transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 200ms ease-out;
+  }
+  .app:not(.motion-off) .tile:active,
+  .app:not(.motion-off) .tile.is-pressed {
+    transition-duration: 90ms;
+    transition-timing-function: ease-out;
+  }
+
+  /* The tick draws itself on, like a pen stroke. */
+  .app:not(.motion-off) .tick-path {
+    stroke-dasharray: 22;
+    stroke-dashoffset: 22;
+    animation: tick-draw 380ms 60ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+
+  /* One soft ring of colour spreads out when something is said. */
+  .app:not(.motion-off) .tile.is-said::after,
+  .app:not(.motion-off) .message-phrase.is-speaking::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: said-ring 480ms ease-out forwards;
+  }
+
+  /* The speaker's sound waves rise and fall only while the voice plays. */
+  .app:not(.motion-off) .action-speak.is-speaking .wave {
+    animation: wave 700ms ease-in-out infinite alternate;
+  }
+  .app:not(.motion-off) .action-speak.is-speaking .wave-2 {
+    animation-delay: 350ms;
+  }
+
+  /* After "Yes, text", a paper plane glides off the button once. */
+  .app:not(.motion-off) .plane {
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    top: 18%;
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--tile-deep);
+    box-shadow: 0 4px 12px rgba(70, 45, 20, 0.25);
+    animation: plane-off 380ms cubic-bezier(0.4, 0, 0.7, 0.2) forwards;
+  }
+  .app:not(.motion-off) .plane .ui-icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* With animations off, the plane is never shown. */
+.motion-off .plane {
+  display: none;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tick-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes said-ring {
+  from {
+    box-shadow: 0 0 0 0 var(--tile-deep);
+    opacity: 0.6;
+  }
+  to {
+    box-shadow: 0 0 0 16px var(--tile-deep);
+    opacity: 0;
+  }
+}
+
+@keyframes wave {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
+}
+
+@keyframes plane-off {
+  from {
+    transform: translate(-50%, 10%) scale(0.7);
+    opacity: 1;
+  }
+  45% {
+    transform: translate(-30%, -30%) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(70%, -170%) rotate(-12deg) scale(0.9);
+    opacity: 0;
   }
 }
