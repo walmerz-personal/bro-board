@@ -133,16 +133,29 @@ export async function deleteRecording(boardId: string, id: string): Promise<void
 export async function moveToNewLink(oldId: string, json: string): Promise<string> {
   const newId = newBoardId();
   await saveBoard(newId, json);
-  const audio = await getDocs(collection(db, 'boards', oldId, 'audio'));
-  for (const d of audio.docs) await setDoc(doc(db, 'boards', newId, 'audio', d.id), d.data());
+  for (const sub of ['audio', 'photos']) {
+    const snap = await getDocs(collection(db, 'boards', oldId, sub));
+    for (const d of snap.docs) await setDoc(doc(db, 'boards', newId, sub, d.id), d.data());
+  }
   await deleteBoard(oldId);
   return newId;
 }
 
 async function deleteBoard(boardId: string): Promise<void> {
-  for (const sub of ['audio', 'history']) {
+  for (const sub of ['audio', 'photos', 'history']) {
     const snap = await getDocs(collection(db, 'boards', boardId, sub));
     await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
   }
   await deleteDoc(doc(db, 'boards', boardId));
+}
+
+/** Store a person's photo (a small JPEG). */
+export async function savePhoto(boardId: string, id: string, jpg: Uint8Array): Promise<void> {
+  await setDoc(doc(db, 'boards', boardId, 'photos', id), { jpg: Bytes.fromUint8Array(jpg) });
+}
+
+/** A stored photo as base64 JPEG data, or null if there is none. */
+export async function getPhoto(boardId: string, id: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, 'boards', boardId, 'photos', id));
+  return snap.exists() ? (snap.data().jpg as Bytes).toBase64() : null;
 }

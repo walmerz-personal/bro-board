@@ -58,6 +58,18 @@ service cloud.firestore {
         allow delete: if isEditor();
       }
 
+      // Photos family upload for people he can text. Same key: the board's id.
+      match /photos/{photoId} {
+        allow get: if true;
+        allow list: if isEditor();
+        allow create, update: if isEditor()
+          && photoId.matches('^[A-Za-z0-9_-]{12,40}$')
+          && request.resource.data.keys().hasOnly(['jpg'])
+          && request.resource.data.jpg is bytes
+          && request.resource.data.jpg.size() < 300000;
+        allow delete: if isEditor();
+      }
+
       // Earlier saved versions, for "Restore previous version". Editors only.
       match /history/{versionId} {
         allow read, delete: if isEditor();

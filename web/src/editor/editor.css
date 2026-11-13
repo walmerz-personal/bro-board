@@ -631,6 +631,61 @@ body.editing #root {
   line-height: 1.1;
 }
 
+.ed-person {
+  position: relative;
+  border-radius: 14px;
+}
+.ed-person.is-dropping {
+  background: #e3ecf8;
+  box-shadow: inset 0 0 0 3px var(--ed-accent);
+}
+.ed-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(227, 236, 248, 0.92);
+  color: var(--ed-accent-deep);
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  pointer-events: none;
+}
+.ed-drop-hint {
+  color: var(--ed-muted);
+  font-size: 13px;
+}
+.ed-photo-error {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+}
+.ed-person-picture {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 140px;
+}
+.ed-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.ed .ed-upload button {
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.ed-icon-button img[src^='data:'],
+.ed-mini-tile img[src^='data:'] {
+  object-fit: cover;
+  border-radius: 10px;
+}
 .ed .ed-add {
   margin-top: 12px;
   border-style: dashed;

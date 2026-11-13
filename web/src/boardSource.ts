@@ -11,12 +11,14 @@ import { useEffect, useState } from 'react';
 import { boardPhrases, parseBoard, type Board } from './board';
 import { audioId } from './remote/audioId';
 import { VOICE } from './remote/config';
-import { fetchBoardJson, fetchRecording } from './remote/rest';
+import { fetchBoardJson, fetchPhoto, fetchRecording } from './remote/rest';
+import { isPhoto, photoIdOf, setPhotos } from './photos';
 import { recordingFor, setDownloadedRecordings } from './speech';
 
 const ID_KEY = 'bro-board:board-id';
 const BOARD_KEY = 'bro-board:board';
 const AUDIO_KEY = 'bro-board:recordings';
+const PHOTOS_KEY = 'bro-board:photos';
 const CHECK_EVERY_MS = 5 * 60 * 1000;
 
 /** The board id in a link's #b=... part, or null if there is none. */
@@ -66,13 +68,39 @@ function savedBoard(boardId: string): SavedBoard | null {
   }
 }
 
-function savedRecordings(): Record<string, string> {
+function savedMap(key: string): Record<string, string> {
   try {
-    const saved = JSON.parse(read(AUDIO_KEY) ?? '{}') as unknown;
+    const saved = JSON.parse(read(key) ?? '{}') as unknown;
     return saved && typeof saved === 'object' ? (saved as Record<string, string>) : {};
   } catch {
     return {};
   }
+}
+
+function savedRecordings(): Record<string, string> {
+  return savedMap(AUDIO_KEY);
+}
+
+/** Download any photos of people on this board that the phone does not have yet. */
+async function syncPhotos(boardId: string, board: Board): Promise<void> {
+  const saved = savedMap(PHOTOS_KEY);
+  const next: Record<string, string> = {};
+  for (const person of board.recipients ?? []) {
+    if (!isPhoto(person.icon)) continue;
+    const id = photoIdOf(person.icon);
+    if (saved[id]) {
+      next[id] = saved[id];
+      continue;
+    }
+    try {
+      const found = await fetchPhoto(boardId, id);
+      if (found.kind === 'ok') next[id] = found.value;
+    } catch {
+      // Offline or a hiccup. The family picture shows until the next check.
+    }
+  }
+  write(PHOTOS_KEY, JSON.stringify(next));
+  setPhotos(next);
 }
 
 /** Download any recordings this board needs that the phone does not have yet. */
@@ -108,6 +136,7 @@ export function useBoard(starter: Board): Board {
   useEffect(() => {
     if (!boardId) return;
     setDownloadedRecordings(savedRecordings());
+    setPhotos(savedMap(PHOTOS_KEY));
     let lastJson = savedBoard(boardId)?.json ?? null;
     let busy = false;
 
@@ -125,6 +154,7 @@ export function useBoard(starter: Board): Board {
           setBoard(next);
         }
         await syncRecordings(boardId, next);
+        await syncPhotos(boardId, next);
       } catch {
         // Offline or a hiccup. The saved copy keeps working.
       } finally {

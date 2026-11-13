@@ -236,6 +236,25 @@ button:focus-visible {
   pointer-events: none;
 }
 
+/* A family photo fills a rounded square, rather than floating like a symbol. */
+.tile-icon.is-photo,
+.confirm-icon.is-photo {
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+/* In the narrow column on "Send this text?", size the photo by its width so it stays square. */
+.confirm-icon.is-photo {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  align-self: center;
+}
+
 /* Two lines are always reserved, so pictures line up across a row. */
 .tile-label {
   width: 100%;

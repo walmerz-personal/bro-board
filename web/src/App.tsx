@@ -1,4 +1,15 @@
-import { Fragment, lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import boardData from './data/default-board.json';
 import { useBoard } from './boardSource';
 import { paginate, type Board, type Category, type Item, type Recipient, type Tile } from './board';
@@ -8,6 +19,8 @@ import { PressButton, PressContext } from './PressButton';
 import { FitText } from './FitText';
 import { canSpeak, speak, stopSpeaking } from './speech';
 import { smsLink } from './texting';
+import { setSafeToReload } from './update';
+import { isPhoto, photosVersion, pictureSrc, subscribePhotos } from './photos';
 
 const starterBoard = boardData as Board;
 
@@ -35,10 +48,19 @@ function wantsMotion(board: Board): boolean {
 const SAID_MS = 2500;
 
 function iconUrl(icon: string): string {
-  return `${import.meta.env.BASE_URL}symbols/${icon}.svg`;
+  return pictureSrc(icon);
 }
 
 export function App() {
+  // The page only reads the address when it opens, so if the part after the
+  // # changes (for example someone adds #edit, or opens a new private link in
+  // the same tab), start again so the right screen and board show.
+  useEffect(() => {
+    const onHashChange = () => window.location.reload();
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   if (window.location.hash.startsWith('#edit')) {
     return (
       <Suspense fallback={<p className="editor-loading">Loading the editor…</p>}>
@@ -53,6 +75,8 @@ type SpeakState = 'idle' | 'speaking' | 'said';
 
 function BoardApp() {
   const latest = useBoard(starterBoard);
+  // Re-draw when people's photos finish downloading.
+  useSyncExternalStore(subscribePhotos, photosVersion);
   // A changed board is only swapped in on the first Home page, so buttons
   // never move under his finger part-way through choosing something.
   const [board, setBoard] = useState(latest);
@@ -118,6 +142,11 @@ function BoardApp() {
   useEffect(() => {
     if (atStart && latest !== board) setBoard(latest);
   }, [atStart, latest, board]);
+
+  // A new version of the app may reload the page, but only on the first Home screen.
+  useEffect(() => {
+    setSafeToReload(atStart);
+  }, [atStart]);
 
   const findCategory = (id: string) => board.categories.find((c) => c.id === id);
   const category = screen.name === 'items' ? findCategory(screen.categoryId) : undefined;
@@ -298,7 +327,12 @@ function Grid<T extends { id: string; label: string; icon: string }>({
             onPress={() => onPick(tile.entry)}
           >
             <span className="tile-picture">
-              <img className="tile-icon" src={iconUrl(tile.entry.icon)} alt="" draggable={false} />
+              <img
+                className={isPhoto(tile.entry.icon) ? 'tile-icon is-photo' : 'tile-icon'}
+                src={iconUrl(tile.entry.icon)}
+                alt=""
+                draggable={false}
+              />
               {tile.entry.id === saidId && (
                 <span className="tile-said">
                   <CheckIcon />
@@ -406,7 +440,12 @@ function ConfirmScreen({
   return (
     <main className="confirm">
       <div className="confirm-card" style={swatchStyle(PEOPLE_SWATCH)}>
-        <img className="confirm-icon" src={iconUrl(person.icon)} alt="" draggable={false} />
+        <img
+          className={isPhoto(person.icon) ? 'confirm-icon is-photo' : 'confirm-icon'}
+          src={iconUrl(person.icon)}
+          alt=""
+          draggable={false}
+        />
         <p className="confirm-to">To {person.name}</p>
         <FitText text={phrase} className="confirm-text" />
       </div>
