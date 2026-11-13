@@ -592,7 +592,7 @@ function PhonePreview({
             tiles={page.map((t) =>
               t.kind === 'more'
                 ? { key: 'more', more: true, label: p === all.length - 1 ? 'Back to start' : 'More' }
-                : { key: t.entry.id, label: t.entry.name, icon: t.entry.icon, style: swatchStyle(colorFor(t.entry)) },
+                : { key: t.entry.id, label: t.entry.name, icon: t.entry.icon, style: swatchStyle(PALETTE.purple) },
             )}
           />
         ),

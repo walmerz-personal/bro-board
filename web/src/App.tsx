@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState, type 
 import boardData from './data/default-board.json';
 import { useBoard } from './boardSource';
 import { paginate, type Board, type Category, type Item, type Recipient, type Tile } from './board';
-import { colorFor, swatchStyle, type Swatch } from './colors';
+import { colorFor, PALETTE, swatchStyle, type Swatch } from './colors';
 import { current, initialNav, navReducer, type NavAction, type NavState } from './nav';
 import { PressButton, PressContext } from './PressButton';
 import { FitText } from './FitText';
@@ -13,6 +13,13 @@ const starterBoard = boardData as Board;
 
 // The editor is only loaded on family's devices, never on his phone.
 const Editor = lazy(() => import('./editor/Editor'));
+
+/**
+ * Everyone on the texting screens shares the Text button's purple, like the
+ * buttons inside a category share its colour. Red and green stay meaning No
+ * and Yes.
+ */
+const PEOPLE_SWATCH = PALETTE.purple;
 
 /** How long "Said it" shows after something has been spoken. */
 const SAID_MS = 2500;
@@ -167,12 +174,12 @@ function BoardApp() {
     content = <BigScreen phrase={screen.phrase} icon={screen.icon} />;
   } else if (screen.name === 'people') {
     const pages = paginate(people.map(asTile));
-    strip = <TitleStrip title="Text who?" page={screen.page} pages={pages.length} />;
+    strip = <TitleStrip title="Text who?" page={screen.page} pages={pages.length} swatch={PEOPLE_SWATCH} />;
     content = (
       <Grid
         tiles={pages[Math.min(screen.page, pages.length - 1)] ?? []}
         lastPage={screen.page === pages.length - 1}
-        swatchOf={(p) => colorFor(p)}
+        swatchOf={() => PEOPLE_SWATCH}
         saidId={null}
         onPick={(p) => {
           const person = people.find((r) => r.id === p.id);
@@ -365,7 +372,7 @@ function ConfirmScreen({
 }) {
   return (
     <main className="confirm">
-      <div className="confirm-card" style={swatchStyle(colorFor(person))}>
+      <div className="confirm-card" style={swatchStyle(PEOPLE_SWATCH)}>
         <img className="confirm-icon" src={iconUrl(person.icon)} alt="" draggable={false} />
         <p className="confirm-to">To {person.name}</p>
         <FitText text={phrase} className="confirm-text" />

@@ -441,7 +441,7 @@ button:focus-visible {
 
 .confirm-to {
   margin: 0;
-  font-size: clamp(24px, 7vmin, 34px);
+  font-size: clamp(28px, 9vmin, 44px);
   font-weight: 800;
   line-height: 1.1;
 }
@@ -559,6 +559,19 @@ button:focus-visible {
   .confirm {
     grid-template-rows: none;
     grid-template-columns: 1.2fr 1fr;
+  }
+
+  /* Yes and No are tall and narrow here, so keep the picture above the label. */
+  .confirm-answers .tile {
+    grid-template-columns: none;
+    grid-template-rows: minmax(0, 1fr) auto;
+    justify-items: center;
+    padding: 8px 6px;
+  }
+
+  .confirm-answers .tile-label {
+    justify-content: center;
+    text-align: center;
   }
 
   .big {
